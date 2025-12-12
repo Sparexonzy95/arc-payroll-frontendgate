@@ -1,7 +1,7 @@
 // src/pages/DashboardPage.tsx
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useAccount, useBalance, useConnect } from 'wagmi'
+import { useAccount, useBalance } from 'wagmi'
 
 import {
   Briefcase,
@@ -11,8 +11,6 @@ import {
   Coins,
   Menu,
   X,
-  Wallet,
-  ArrowRight,
 } from 'lucide-react'
 
 import { EmployerOnboarding } from '../features/employer/EmployerOnboarding'
@@ -76,11 +74,6 @@ export function DashboardPage() {
   } = useWalletEmployerBinding()
 
   const { address } = useAccount()
-  const isConnected = !!address
-
-  // Same connect behavior as Navbar (connectors[0])
-  const { connectors, connect, status: connectStatus } = useConnect()
-  const mainConnector = connectors[0]
 
   // -------------------------------------
   // Wallet balances
@@ -332,6 +325,7 @@ export function DashboardPage() {
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto pb-4">
+              {/* Mobile nav uses same handlers as desktop */}
               <button
                 type="button"
                 onClick={() => handleToolChange('payrolls')}
@@ -511,88 +505,22 @@ export function DashboardPage() {
                 >
                   <Menu className="h-4.5 w-4.5" />
                 </button>
-
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-50">
                   {TOOL_LABELS[activeTool]}
                 </h1>
               </div>
 
               <div className="w-full min-w-[220px] max-w-xs sm:max-w-sm sm:w-auto">
-                {isConnected ? (
-                  <EmployerSelector
-                    employers={employers}
-                    activeEmployerId={activeEmployerId}
-                    setActiveEmployerId={setActiveEmployerId}
-                  />
-                ) : (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#050b26] px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                      <Wallet className="h-4 w-4 text-[#95a7f5]" />
-                      <span className="font-medium">Wallet not connected</span>
-                    </div>
-                    <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
-                      Connect to start
-                    </span>
-                  </div>
-                )}
+                <EmployerSelector
+                  employers={employers}
+                  activeEmployerId={activeEmployerId}
+                  setActiveEmployerId={setActiveEmployerId}
+                />
               </div>
             </div>
 
-            {/* -------------------------------------
-               CONNECT WALLET GATE
-               ------------------------------------- */}
-            {!isConnected ? (
-              <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-[#050b26] p-5 sm:p-6">
-                <div className="relative z-10">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 text-[11px] uppercase tracking-wide text-slate-300">
-                    <Wallet className="h-4 w-4 text-[#95a7f5]" />
-                    Connect wallet
-                  </div>
-
-                  <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-50">
-                    You’re not connected yet
-                  </h2>
-
-                  <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                    Connect your wallet to access payrolls, bridge USDC with
-                    Gateway, and start saving. Once connected, you’ll bind your
-                    wallet to an employer profile to unlock the tools.
-                  </p>
-
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <Button
-                      type="button"
-                      className="w-full sm:w-auto"
-                      loading={connectStatus === 'pending'}
-                      onClick={() => {
-                        if (mainConnector) connect({ connector: mainConnector })
-                      }}
-                    >
-                      Connect wallet
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-
-                    <Link to="/" className="w-full sm:w-auto">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="w-full sm:w-auto"
-                      >
-                        Back to home
-                      </Button>
-                    </Link>
-
-                    <div className="text-xs text-slate-500 sm:ml-auto">
-                      Tip: if you don’t see the connect button, open the menu on
-                      mobile.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[#4189e1]/20 blur-3xl" />
-                <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-[#0e305a]/35 blur-3xl" />
-              </Card>
-            ) : needsOnboarding ? (
+            {/* Employer onboarding or content */}
+            {needsOnboarding ? (
               <Card className="space-y-4 border-slate-800 bg-[#050b26]">
                 <h2 className="text-base sm:text-lg font-semibold text-slate-50">
                   Get started with Arcflow
@@ -681,9 +609,9 @@ export function DashboardPage() {
                             Move USDC seamlessly across chains
                           </h2>
                           <p className="mt-1 text-xs sm:text-sm text-[#e3eefa]/80">
-                            Bridge USDC between Arc Testnet and Base Sepolia via
-                            Circle Gateway. Fund payrolls from the right chain
-                            at the right time.
+                            Bridge USDC between Arc Testnet and Base Sepolia
+                            via Circle Gateway. Fund payrolls from the right
+                            chain at the right time.
                           </p>
                         </div>
 
@@ -765,8 +693,8 @@ export function DashboardPage() {
                           </h2>
                           <p className="mt-1 text-xs sm:text-sm text-slate-100/80">
                             Delegate part of your treasury into staking
-                            strategies and validator rewards while keeping clear
-                            visibility from the same dashboard.
+                            strategies and validator rewards while keeping
+                            clear visibility from the same dashboard.
                           </p>
                         </div>
 
