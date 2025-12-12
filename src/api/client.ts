@@ -2,26 +2,42 @@
 import axios from 'axios'
 import { API_BASE_URL } from '../lib/config'
 
+function normalizeBaseUrl(raw?: string) {
+  const v = (raw || '').trim()
+
+  // fallback for local dev
+  const base = v || 'http://localhost:8000'
+
+  // remove trailing slashes
+  const noTrailing = base.replace(/\/+$/, '')
+
+  // IMPORTANT:
+  // if someone set API_BASE_URL="https://api.arcflow.space/api"
+  // strip the ending "/api" so our calls can remain "/api/..."
+  const withoutApiSuffix = noTrailing.replace(/\/api$/i, '')
+
+  return withoutApiSuffix
+}
+
 export const api = axios.create({
-  baseURL: API_BASE_URL || 'http://localhost:8000',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  timeout: 30000
+  baseURL: normalizeBaseUrl(API_BASE_URL),
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 })
 
-// Add request interceptor for debugging
+// Debug interceptor (keeps logs clean + shows full resolved URL)
 api.interceptors.request.use(
   (config) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url)
+    const method = (config.method || 'GET').toUpperCase()
+    const base = config.baseURL || ''
+    const url = config.url || ''
+    const full = `${base}${url.startsWith('/') ? '' : '/'}${url}`
+    console.log('API Request:', method, full)
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
