@@ -1,0 +1,135 @@
+:root {
+  /* Brand scale from your palette */
+  --brand-50:  #e3eefa;
+  --brand-200: #92bbee;
+  --brand-400: #4189e1;
+  --brand-500: #1a5bab;
+  --brand-600: #164c90;
+  --brand-700: #0e305a;
+  --brand-800: #0c2b51;
+  --nav-bg: #02071c;
+
+  /* Surfaces (synced to dashboard theme) */
+  --bg-body:      #02071c;  /* global shell */
+  --bg-elevated:  #050b26;  /* cards / panels */
+  --bg-sunken:    #010413;  /* deep wells / tables */
+
+  --border-subtle: #0b1224;
+  --border-strong: #1e293b;
+
+  /* Text */
+  --text-primary: #f9fbff;
+  --text-muted:   #9ca9c9;
+  --text-soft:    #7b88a8;
+
+  /* States / effects */
+  --focus-ring:   rgba(65, 137, 225, 0.7); /* brand-400 */
+  --overlay-soft: rgba(6, 15, 30, 0.8);
+
+  /* No shadow boxing – keep this as none */
+  --shadow-soft:  none;
+
+  /* Radius */
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Fonts */
+  --font-heading: "Sora", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:    "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@import "tailwindcss";
+
+/* Base layer: body + typography */
+@layer base {
+  body {
+    @apply antialiased;
+    margin: 0;
+    /* Unified background: brand halo into deep shell */
+    background: radial-gradient(circle at top, var(--brand-800) 0, var(--bg-body) 52%) fixed;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+  }
+
+  /* Headings / hero titles use heading font from tokens */
+  h1,
+  h2,
+  h3,
+  .heading-font {
+    font-family: var(--font-heading);
+  }
+}
+
+/* Small structural helpers */
+@layer components {
+  .app-shell {
+    @apply min-h-screen flex flex-col;
+    background-color: var(--bg-body);
+  }
+
+  .container-page {
+    @apply max-w-6xl mx-auto px-4 py-6;
+  }
+}
+
+/* --------- Utility classes tied to tokens --------- */
+
+/* Fonts */
+.font-heading {
+  font-family: var(--font-heading);
+}
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Text colors */
+.text-ink-primary {
+  color: var(--text-primary);
+}
+.text-ink-muted {
+  color: var(--text-muted);
+}
+.text-ink-soft {
+  color: var(--text-soft);
+}
+
+/* Background surfaces */
+.bg-surface-body {
+  background-color: var(--bg-body);
+}
+.bg-surface-elevated {
+  background-color: var(--bg-elevated);
+}
+.bg-surface-sunken {
+  background-color: var(--bg-sunken);
+}
+
+/* Borders */
+.border-subtle {
+  border-color: var(--border-subtle);
+}
+.border-strong {
+  border-color: var(--border-strong);
+}
+
+/* Shadows – neutralised (no shadow boxing) */
+.shadow-soft {
+  box-shadow: var(--shadow-soft); /* effectively none */
+}
+
+/* Subtle noise overlay for dark surfaces */
+.noise-surface {
+  position: relative;
+  overflow: hidden;
+}
+
+.noise-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='noStitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+}

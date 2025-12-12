@@ -1,0 +1,90 @@
+:root {
+  /* Brand scale from your palette */
+  --brand-50:  #e3eefa;
+  --brand-200: #92bbee;
+  --brand-400: #4189e1;
+  --brand-500: #1a5bab;
+  --brand-600: #164c90;
+  --brand-700: #0e305a;
+  --brand-800: #0c2b51;
+
+  /* Surfaces */
+  --bg-body:      #020712;
+  --bg-elevated:  #050d13;
+  --bg-sunken:    #020612;
+
+  --border-subtle: #0f172a;
+  --border-strong: #1e293b;
+
+  /* Text */
+  --text-primary: #f9fbff;
+  --text-muted:   #9ca9c9;
+  --text-soft:    #7b88a8;
+
+  /* States / effects */
+  --focus-ring:   rgba(65, 137, 225, 0.7); /* brand-400 */
+  --overlay-soft: rgba(6, 15, 30, 0.8);
+  --shadow-soft:  0 18px 45px rgba(1, 5, 15, 0.9);
+
+  /* Radius */
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Fonts */
+  --font-heading: "Sora", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:    "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Base body styling */
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #0c2b51 0, #020712 52%) fixed;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* --------- Tiny utility classes (to avoid tailwind.config) --------- */
+
+/* Fonts */
+.font-heading {
+  font-family: var(--font-heading);
+}
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Text colors */
+.text-ink-primary {
+  color: var(--text-primary);
+}
+.text-ink-muted {
+  color: var(--text-muted);
+}
+.text-ink-soft {
+  color: var(--text-soft);
+}
+
+/* Background surfaces */
+.bg-surface-body {
+  background-color: var(--bg-body);
+}
+.bg-surface-elevated {
+  background-color: var(--bg-elevated);
+}
+.bg-surface-sunken {
+  background-color: var(--bg-sunken);
+}
+
+/* Borders */
+.border-subtle {
+  border-color: var(--border-subtle);
+}
+.border-strong {
+  border-color: var(--border-strong);
+}
+
+/* Shadows */
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
