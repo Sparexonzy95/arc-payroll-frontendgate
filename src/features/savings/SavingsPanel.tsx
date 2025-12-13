@@ -26,7 +26,7 @@ type PlanType = 'flex' | 'fixed'
 
 interface SavingRowData {
   id: string
-  planType: PlanType
+  planType: PlanType // backend hint only, NOT source of truth
   tokenSymbol: TokenChoice
   createdAt: string
   maturesAt?: string | null
@@ -37,6 +37,24 @@ function getTokenAddress(symbol: TokenChoice): `0x${string}` {
   return symbol === 'USDC' ? ARC_USDC : ARC_EURC
 }
 
+function readPlanTypeFromStruct(savingStruct: any): number | null {
+  if (!savingStruct) return null
+  const raw = savingStruct.planType ?? savingStruct[2]
+  if (raw === undefined || raw === null) return null
+  try {
+    return Number(raw)
+  } catch {
+    return null
+  }
+}
+
+function readClosedFromStruct(savingStruct: any): boolean | null {
+  if (!savingStruct) return null
+  const raw = savingStruct.closed ?? savingStruct[7]
+  if (raw === undefined || raw === null) return null
+  return Boolean(raw)
+}
+
 export function SavingsPanel() {
   const { address } = useAccount()
   const queryClient = useQueryClient()
@@ -44,12 +62,9 @@ export function SavingsPanel() {
   const { loading, createSaving, deposit, withdrawFlex, withdrawFixed } =
     useSavingsVault()
 
-  const {
-    data: savingsFromBackend,
-    isLoading: savingsLoading,
-  } = useUserSavings()
+  const { data: savingsFromBackend, isLoading: savingsLoading } = useUserSavings()
 
-  const savings: SavingRowData[] = (savingsFromBackend || []).map((s) => ({
+  const savings: SavingRowData[] = (savingsFromBackend || []).map((s: any) => ({
     id: s.id,
     planType: s.planType,
     tokenSymbol: s.tokenSymbol,
@@ -93,9 +108,7 @@ export function SavingsPanel() {
       })
     } catch (e: any) {
       console.error('Failed to record saving in backend', e)
-      toast.error(
-        'Saving created on-chain, but backend index failed. Check logs.',
-      )
+      toast.error('Saving created on-chain, but backend index failed. Check logs.')
     }
   }
 
@@ -126,7 +139,6 @@ export function SavingsPanel() {
 
       await deposit({ savingId: id, amount: newAmount })
 
-      // record in backend index
       await recordSavingOnBackend({
         savingId: id,
         planType,
@@ -174,7 +186,10 @@ export function SavingsPanel() {
           </h3>
           {address && (
             <p className="text-[11px] text-slate-500">
-              Wallet: <span className="font-mono">{address.slice(0, 6)}…{address.slice(-4)}</span>
+              Wallet:{' '}
+              <span className="font-mono">
+                {address.slice(0, 6)}…{address.slice(-4)}
+              </span>
             </p>
           )}
         </div>
@@ -425,9 +440,15 @@ function SavingRow({
     chainId: ARC_CHAIN_ID,
   })
 
-  const closed = savingStruct
-    ? Boolean((savingStruct as any).closed ?? (savingStruct as any)[7])
-    : saving.closed
+  const planTypeOnchain = readPlanTypeFromStruct(savingStruct as any)
+  const isFlex = planTypeOnchain === 0
+  const isFixed = planTypeOnchain === 1
+
+  const closedOnchain = readClosedFromStruct(savingStruct as any)
+  const closed = closedOnchain !== null ? closedOnchain : saving.closed
+
+  const planLabel: PlanType =
+    planTypeOnchain === 0 ? 'flex' : planTypeOnchain === 1 ? 'fixed' : saving.planType
 
   const available = availableRaw ? BigInt(availableRaw as any) : 0n
   const availableHuman = formatUnits(available, 6)
@@ -438,9 +459,7 @@ function SavingRow({
   const [amount, setAmount] = useState('')
 
   const now = Date.now()
-  const matured = saving.maturesAt
-    ? new Date(saving.maturesAt).getTime() <= now
-    : false
+  const matured = saving.maturesAt ? new Date(saving.maturesAt).getTime() <= now : false
 
   async function refresh() {
     await Promise.all([refAvail(), refSave()])
@@ -461,6 +480,9 @@ function SavingRow({
 
   async function doFlexWithdraw() {
     if (!amount) return toast.error('Enter amount.')
+    if (planTypeOnchain !== null && !isFlex) {
+      return toast.error('This saving is not a flex plan.')
+    }
     try {
       await withdrawFlex({ savingId: savingIdBig, amount })
       await refresh()
@@ -473,6 +495,9 @@ function SavingRow({
   }
 
   async function doFixedWithdraw() {
+    if (planTypeOnchain !== null && !isFixed) {
+      return toast.error('This saving is not a fixed plan.')
+    }
     try {
       await withdrawFixed(savingIdBig)
       await refresh()
@@ -482,22 +507,23 @@ function SavingRow({
     }
   }
 
+  const canShowActions = planTypeOnchain !== null // wait for on-chain truth before showing withdraw buttons
+
   return (
     <tr className="transition-colors hover:bg-slate-900/60">
-      <td className="px-3 py-2 font-mono text-[11px] text-slate-100">
-        #{saving.id}
-      </td>
+      <td className="px-3 py-2 font-mono text-[11px] text-slate-100">#{saving.id}</td>
       <td className="px-3 py-2 text-slate-200">{saving.tokenSymbol}</td>
 
       <td className="px-3 py-2">
         <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-100">
-          {saving.planType === 'flex' ? (
+          {planLabel === 'flex' ? (
             <Wallet className="h-3 w-3 text-[#92bbee]" />
           ) : (
             <Lock className="h-3 w-3 text-[#92bbee]" />
           )}
-          {saving.planType}
+          {planLabel}
           {closed ? ' · Closed' : ''}
+          {planTypeOnchain === null ? ' · Syncing' : ''}
         </span>
       </td>
 
@@ -510,9 +536,7 @@ function SavingRow({
       </td>
 
       <td className="px-3 py-2 text-[10px] text-slate-400">
-        {saving.maturesAt
-          ? new Date(saving.maturesAt).toLocaleDateString()
-          : '—'}
+        {saving.maturesAt ? new Date(saving.maturesAt).toLocaleDateString() : '—'}
       </td>
 
       <td className="px-3 py-2">
@@ -553,7 +577,7 @@ function SavingRow({
             </Button>
           )}
 
-          {saving.planType === 'flex' && !closed && (
+          {canShowActions && isFlex && !closed && (
             <Button
               size="xs"
               variant="secondary"
@@ -564,12 +588,8 @@ function SavingRow({
             </Button>
           )}
 
-          {saving.planType === 'fixed' && !closed && (
-            <Button
-              size="xs"
-              disabled={busy || !matured}
-              onClick={doFixedWithdraw}
-            >
+          {canShowActions && isFixed && !closed && (
+            <Button size="xs" disabled={busy || !matured} onClick={doFixedWithdraw}>
               Withdraw fixed
             </Button>
           )}
@@ -620,9 +640,15 @@ function SavingCard({
     chainId: ARC_CHAIN_ID,
   })
 
-  const closed = savingStruct
-    ? Boolean((savingStruct as any).closed ?? (savingStruct as any)[7])
-    : saving.closed
+  const planTypeOnchain = readPlanTypeFromStruct(savingStruct as any)
+  const isFlex = planTypeOnchain === 0
+  const isFixed = planTypeOnchain === 1
+
+  const closedOnchain = readClosedFromStruct(savingStruct as any)
+  const closed = closedOnchain !== null ? closedOnchain : saving.closed
+
+  const planLabel: PlanType =
+    planTypeOnchain === 0 ? 'flex' : planTypeOnchain === 1 ? 'fixed' : saving.planType
 
   const available = availableRaw ? BigInt(availableRaw as any) : 0n
   const availableHuman = formatUnits(available, 6)
@@ -633,9 +659,7 @@ function SavingCard({
   const [amount, setAmount] = useState('')
 
   const now = Date.now()
-  const matured = saving.maturesAt
-    ? new Date(saving.maturesAt).getTime() <= now
-    : false
+  const matured = saving.maturesAt ? new Date(saving.maturesAt).getTime() <= now : false
 
   async function refresh() {
     await Promise.all([refAvail(), refSave()])
@@ -656,6 +680,9 @@ function SavingCard({
 
   async function doFlexWithdraw() {
     if (!amount) return toast.error('Enter amount.')
+    if (planTypeOnchain !== null && !isFlex) {
+      return toast.error('This saving is not a flex plan.')
+    }
     try {
       await withdrawFlex({ savingId: savingIdBig, amount })
       await refresh()
@@ -668,6 +695,9 @@ function SavingCard({
   }
 
   async function doFixedWithdraw() {
+    if (planTypeOnchain !== null && !isFixed) {
+      return toast.error('This saving is not a fixed plan.')
+    }
     try {
       await withdrawFixed(savingIdBig)
       await refresh()
@@ -676,6 +706,8 @@ function SavingCard({
       toast.error(e.message)
     }
   }
+
+  const canShowActions = planTypeOnchain !== null
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-4">
@@ -686,17 +718,18 @@ function SavingCard({
           <p className="text-sm font-semibold text-slate-100">
             {saving.tokenSymbol}{' '}
             <span className="text-[11px] font-normal text-slate-400">
-              · {saving.planType}
+              · {planLabel}
             </span>
           </p>
           <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-100">
-            {saving.planType === 'flex' ? (
+            {planLabel === 'flex' ? (
               <Wallet className="h-3 w-3 text-[#92bbee]" />
             ) : (
               <Lock className="h-3 w-3 text-[#92bbee]" />
             )}
-            {saving.planType}
+            {planLabel}
             {closed ? ' · Closed' : ''}
+            {planTypeOnchain === null ? ' · Syncing' : ''}
           </span>
         </div>
 
@@ -711,20 +744,12 @@ function SavingCard({
       {/* Dates */}
       <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-slate-400">
         <div>
-          <p className="uppercase tracking-wide text-[9px] text-slate-500">
-            Created
-          </p>
+          <p className="uppercase tracking-wide text-[9px] text-slate-500">Created</p>
           <p>{new Date(saving.createdAt).toLocaleString()}</p>
         </div>
         <div>
-          <p className="uppercase tracking-wide text-[9px] text-slate-500">
-            Release
-          </p>
-          <p>
-            {saving.maturesAt
-              ? new Date(saving.maturesAt).toLocaleDateString()
-              : '—'}
-          </p>
+          <p className="uppercase tracking-wide text-[9px] text-slate-500">Release</p>
+          <p>{saving.maturesAt ? new Date(saving.maturesAt).toLocaleDateString() : '—'}</p>
         </div>
       </div>
 
@@ -767,7 +792,7 @@ function SavingCard({
             </Button>
           )}
 
-          {saving.planType === 'flex' && !closed && (
+          {canShowActions && isFlex && !closed && (
             <Button
               size="xs"
               variant="secondary"
@@ -778,12 +803,8 @@ function SavingCard({
             </Button>
           )}
 
-          {saving.planType === 'fixed' && !closed && (
-            <Button
-              size="xs"
-              disabled={busy || !matured}
-              onClick={doFixedWithdraw}
-            >
+          {canShowActions && isFixed && !closed && (
+            <Button size="xs" disabled={busy || !matured} onClick={doFixedWithdraw}>
               Withdraw fixed
             </Button>
           )}
