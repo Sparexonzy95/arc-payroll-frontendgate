@@ -1,4 +1,4 @@
-// src/hooks/useSavingsVault.ts
+// src/hooks/hooks/useSavingsVault.ts
 import { useState } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { parseUnits } from 'viem'
@@ -50,16 +50,18 @@ const erc20Abi = [
   },
 ] as const
 
-function getViemErrorMessage(err: any): string {
-  // viem errors usually have shortMessage, details, cause.shortMessage, etc.
-  return (
-    err?.shortMessage ||
-    err?.cause?.shortMessage ||
-    err?.details ||
-    err?.cause?.details ||
-    err?.message ||
-    'Transaction reverted'
-  )
+function readTokenFromSavingStruct(s: any): `0x${string}` {
+  return (s?.token ?? s?.[1]) as `0x${string}`
+}
+
+function readPlanTypeFromSavingStruct(s: any): number | null {
+  const raw = s?.planType ?? s?.[2]
+  if (raw === undefined || raw === null) return null
+  try {
+    return Number(raw)
+  } catch {
+    return null
+  }
 }
 
 export function useSavingsVault() {
@@ -77,10 +79,6 @@ export function useSavingsVault() {
     if (!walletClient) {
       toast.error('Wallet client not ready.')
       throw new Error('Wallet client not ready')
-    }
-    if (!publicClient) {
-      toast.error('Public client not ready.')
-      throw new Error('Public client not ready')
     }
   }
 
@@ -102,22 +100,26 @@ export function useSavingsVault() {
   }
 
   // --------------------------------------------------
-  // Approve token if allowance < needed
+  // Read saving struct once (for token + planType)
   // --------------------------------------------------
-  async function ensureAllowanceForSaving(savingId: bigint, amountAtomic: bigint) {
-    if (amountAtomic === 0n) return
-    ensureWallet()
-
-    // read savings(savingId) to get the token address
-    const savingStruct = await publicClient!.readContract({
+  async function readSavingStruct(savingId: bigint) {
+    const savingStruct = await publicClient.readContract({
       address: ARC_SAVINGS_VAULT,
       abi: savingsVaultAbi,
       functionName: 'savings',
       args: [savingId],
     })
+    return savingStruct as any
+  }
 
-    const sAny = savingStruct as any
-    const tokenAddress = (sAny.token ?? sAny[1]) as `0x${string}`
+  // --------------------------------------------------
+  // Approve token if allowance < needed
+  // --------------------------------------------------
+  async function ensureAllowanceForSaving(savingId: bigint, amountAtomic: bigint) {
+    if (amountAtomic === 0n) return
+
+    const savingStruct = await readSavingStruct(savingId)
+    const tokenAddress = readTokenFromSavingStruct(savingStruct)
 
     console.log('SV_ALLOWANCE_CHECK', {
       savingId: savingId.toString(),
@@ -127,7 +129,7 @@ export function useSavingsVault() {
       amountAtomic: amountAtomic.toString(),
     })
 
-    const currentAllowance = (await publicClient!.readContract({
+    const currentAllowance = (await publicClient.readContract({
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'allowance',
@@ -153,7 +155,7 @@ export function useSavingsVault() {
 
     console.log('SV_APPROVE_TX', approveHash)
 
-    const approveReceipt = await publicClient!.waitForTransactionReceipt({
+    const approveReceipt = await publicClient.waitForTransactionReceipt({
       hash: approveHash,
     })
 
@@ -189,12 +191,11 @@ export function useSavingsVault() {
 
       console.log('SV_CREATE_TX', hash)
 
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
       checkReceiptOk(receipt, 'Create saving')
       toast.dismiss('sv-create')
 
-      // read nextSavingId AFTER tx and subtract 1
-      const nextSavingId = (await publicClient!.readContract({
+      const nextSavingId = (await publicClient.readContract({
         address: ARC_SAVINGS_VAULT,
         abi: savingsVaultAbi,
         functionName: 'nextSavingId',
@@ -241,23 +242,7 @@ export function useSavingsVault() {
         account: address,
       })
 
-      // 1) make sure allowance is enough
       await ensureAllowanceForSaving(savingId, atomic)
-
-      // 2) simulate first (gives real revert reason)
-      try {
-        await publicClient!.simulateContract({
-          address: ARC_SAVINGS_VAULT,
-          abi: savingsVaultAbi,
-          functionName: 'deposit',
-          args: [savingId, atomic],
-          account: address as `0x${string}`,
-        })
-      } catch (e: any) {
-        const msg = getViemErrorMessage(e)
-        console.error('DEPOSIT_SIM_REVERT', e)
-        throw new Error(msg)
-      }
 
       toast.loading('Depositing into saving…', { id: 'sv-deposit' })
 
@@ -272,7 +257,7 @@ export function useSavingsVault() {
 
       console.log('DEPOSIT_TX_HASH', hash)
 
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
       console.log('DEPOSIT_RECEIPT', receipt)
       toast.dismiss('sv-deposit')
 
@@ -304,50 +289,25 @@ export function useSavingsVault() {
       setLoading(true)
       await ensureArcChain()
 
-      const atomic = parseUnits(amount, 6)
+      // Safety guard: ensure this saving is flex ON-CHAIN
+      const savingStruct = await readSavingStruct(savingId)
+      const planType = readPlanTypeFromSavingStruct(savingStruct)
 
-      // 1) Hard pre-check: amount <= getAvailable
-      const available = (await publicClient!.readContract({
-        address: ARC_SAVINGS_VAULT,
-        abi: savingsVaultAbi,
-        functionName: 'getAvailable',
-        args: [savingId],
-      })) as bigint
+      if (planType !== null && planType !== 0) {
+        // This prevents "not flex" revert + gas waste
+        throw new Error('This saving is not a flex plan')
+      }
+
+      const atomic = parseUnits(amount, 6)
 
       console.log('WITHDRAW_FLEX_CALL', {
         savingId: savingId.toString(),
         amountHuman: amount,
         amountAtomic: atomic.toString(),
-        availableAtomic: available.toString(),
         chainId: ARC_CHAIN_ID,
         vault: ARC_SAVINGS_VAULT,
         account: address,
       })
-
-      if (atomic <= 0n) {
-        throw new Error('Amount must be greater than 0')
-      }
-
-      if (atomic > available) {
-        throw new Error(
-          `Withdraw amount exceeds available. Available is ${available.toString()} (atomic).`
-        )
-      }
-
-      // 2) simulate first, to get REAL revert reason (owner mismatch, closed, wrong plan type, etc)
-      try {
-        await publicClient!.simulateContract({
-          address: ARC_SAVINGS_VAULT,
-          abi: savingsVaultAbi,
-          functionName: 'withdrawFlex',
-          args: [savingId, atomic],
-          account: address as `0x${string}`,
-        })
-      } catch (e: any) {
-        const msg = getViemErrorMessage(e)
-        console.error('WITHDRAW_FLEX_SIM_REVERT', e)
-        throw new Error(msg)
-      }
 
       toast.loading('Withdrawing from flex saving…', { id: 'sv-wflex' })
 
@@ -362,17 +322,20 @@ export function useSavingsVault() {
 
       console.log('WITHDRAW_FLEX_TX_HASH', hash)
 
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
       console.log('WITHDRAW_FLEX_RECEIPT', receipt)
       toast.dismiss('sv-wflex')
 
       checkReceiptOk(receipt, 'Flex withdrawal')
       toast.success('Flex withdrawal confirmed.')
-    } catch (err) {
+    } catch (err: any) {
       toast.dismiss('sv-wflex')
       console.error('withdrawFlex failed', err)
-      // ensure user sees the real reason
-      throw new Error(getViemErrorMessage(err))
+      // show nicer message if it’s our guard
+      if (String(err?.message || '').toLowerCase().includes('not a flex')) {
+        toast.error('This saving is fixed, use Withdraw fixed.')
+      }
+      throw err
     } finally {
       setLoading(false)
     }
@@ -395,21 +358,6 @@ export function useSavingsVault() {
         account: address,
       })
 
-      // simulate first for real revert reason
-      try {
-        await publicClient!.simulateContract({
-          address: ARC_SAVINGS_VAULT,
-          abi: savingsVaultAbi,
-          functionName: 'withdrawFixed',
-          args: [savingId],
-          account: address as `0x${string}`,
-        })
-      } catch (e: any) {
-        const msg = getViemErrorMessage(e)
-        console.error('WITHDRAW_FIXED_SIM_REVERT', e)
-        throw new Error(msg)
-      }
-
       toast.loading('Withdrawing fixed saving…', { id: 'sv-wfixed' })
 
       const hash = await walletClient!.writeContract({
@@ -423,7 +371,7 @@ export function useSavingsVault() {
 
       console.log('WITHDRAW_FIXED_TX_HASH', hash)
 
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
       console.log('WITHDRAW_FIXED_RECEIPT', receipt)
       toast.dismiss('sv-wfixed')
 
@@ -432,7 +380,7 @@ export function useSavingsVault() {
     } catch (err) {
       toast.dismiss('sv-wfixed')
       console.error('withdrawFixed failed', err)
-      throw new Error(getViemErrorMessage(err))
+      throw err
     } finally {
       setLoading(false)
     }
