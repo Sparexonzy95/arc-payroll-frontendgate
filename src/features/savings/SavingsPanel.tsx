@@ -1,6 +1,6 @@
 // src/features/savings/SavingsPanel.tsx
 import { useState } from 'react'
-import { useAccount, useReadContract } from 'wagmi'
+import { useAccount, usePublicClient, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import toast from 'react-hot-toast'
 import { useQueryClient } from '@tanstack/react-query'
@@ -55,8 +55,41 @@ function readClosedFromStruct(savingStruct: any): boolean | null {
   return Boolean(raw)
 }
 
+function readCreatedAtFromStruct(savingStruct: any): number | null {
+  if (!savingStruct) return null
+  const raw = savingStruct.createdAt ?? savingStruct[3]
+  if (raw === undefined || raw === null) return null
+  try {
+    return Number(raw)
+  } catch {
+    return null
+  }
+}
+
+function readMaturesAtFromStruct(savingStruct: any): number | null {
+  if (!savingStruct) return null
+  const raw = savingStruct.maturesAt ?? savingStruct[4]
+  if (raw === undefined || raw === null) return null
+  try {
+    return Number(raw)
+  } catch {
+    return null
+  }
+}
+
+function readTokenFromStruct(savingStruct: any): `0x${string}` | null {
+  if (!savingStruct) return null
+  const raw = (savingStruct.token ?? savingStruct[1]) as `0x${string}` | undefined
+  return raw ?? null
+}
+
+function tokenSymbolFromAddress(addr: string): TokenChoice {
+  return addr.toLowerCase() === ARC_EURC.toLowerCase() ? 'EURC' : 'USDC'
+}
+
 export function SavingsPanel() {
   const { address } = useAccount()
+  const publicClient = usePublicClient({ chainId: ARC_CHAIN_ID })
   const queryClient = useQueryClient()
 
   const { loading, createSaving, deposit, withdrawFlex, withdrawFixed } =
@@ -81,25 +114,46 @@ export function SavingsPanel() {
 
   const disabled = !address || loading
 
-  async function recordSavingOnBackend(args: {
-    savingId: bigint
-    planType: PlanType
-    tokenChoice: TokenChoice
-    createdAtIso: string
-    maturesIso?: string
-  }) {
+  // FIX: record from on-chain truth, not from UI inputs
+  async function recordSavingOnBackend(savingId: bigint) {
     if (!address) return
-
     try {
+      const savingStruct = await publicClient.readContract({
+        address: ARC_SAVINGS_VAULT,
+        abi: savingsVaultAbi,
+        functionName: 'savings',
+        args: [savingId],
+      })
+
+      const planTypeOnchain = readPlanTypeFromStruct(savingStruct as any)
+      const tokenOnchain = readTokenFromStruct(savingStruct as any)
+      const createdAtSec = readCreatedAtFromStruct(savingStruct as any)
+      const maturesAtSec = readMaturesAtFromStruct(savingStruct as any)
+
+      const plan_type: PlanType =
+        planTypeOnchain === 0 ? 'flex' : planTypeOnchain === 1 ? 'fixed' : 'flex'
+
+      const token_address = tokenOnchain ?? getTokenAddress(tokenChoice)
+      const token_symbol = tokenSymbolFromAddress(token_address)
+
+      const created_at = createdAtSec
+        ? new Date(createdAtSec * 1000).toISOString()
+        : new Date().toISOString()
+
+      const matures_at =
+        plan_type === 'fixed' && maturesAtSec && maturesAtSec > 0
+          ? new Date(maturesAtSec * 1000).toISOString()
+          : null
+
       await api.post('/api/savings/', {
         chain_id: ARC_CHAIN_ID,
         owner_address: address,
-        saving_id: args.savingId.toString(),
-        token_address: getTokenAddress(args.tokenChoice),
-        token_symbol: args.tokenChoice,
-        plan_type: args.planType,
-        created_at: args.createdAtIso,
-        matures_at: args.maturesIso ?? null,
+        saving_id: savingId.toString(),
+        token_address,
+        token_symbol,
+        plan_type,
+        created_at,
+        matures_at,
         closed: false,
       })
 
@@ -118,18 +172,13 @@ export function SavingsPanel() {
 
     try {
       let maturesAt: number | undefined
-      let maturesIso: string | undefined
 
       if (planType === 'fixed') {
         const days = Number(fixedDays)
         if (days <= 0) return toast.error('Days must be positive.')
-
         const nowSec = Math.floor(Date.now() / 1000)
         maturesAt = nowSec + days * 86400
-        maturesIso = new Date(maturesAt * 1000).toISOString()
       }
-
-      const createdIso = new Date().toISOString()
 
       const id = await createSaving({
         token: getTokenAddress(tokenChoice),
@@ -139,13 +188,8 @@ export function SavingsPanel() {
 
       await deposit({ savingId: id, amount: newAmount })
 
-      await recordSavingOnBackend({
-        savingId: id,
-        planType,
-        tokenChoice,
-        createdAtIso: createdIso,
-        maturesIso,
-      })
+      // FIX: index using chain truth
+      await recordSavingOnBackend(id)
 
       setNewAmount('')
       toast.success(`Saving #${id} created.`)
@@ -156,7 +200,6 @@ export function SavingsPanel() {
 
   return (
     <div className="space-y-6 sm:space-y-7">
-      {/* PANEL 1 - HERO */}
       <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-[#164c90] via-[#1a5bab] to-[#0c2b51] px-4 py-5 sm:px-6 sm:py-6 shadow-xl shadow-black/40">
         <div className="relative z-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/20 ring-1 ring-[#4189e1]/60">
@@ -167,9 +210,7 @@ export function SavingsPanel() {
               Piggyvest savings vault
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#e3eefa]/80">
-              Create flexible or fixed USDC/EURC savings on Arc. Your savings
-              list is indexed on the backend so it survives clearing your
-              browser.
+              Create flexible or fixed USDC/EURC savings on Arc. Your savings list is indexed on the backend.
             </p>
           </div>
         </div>
@@ -178,7 +219,6 @@ export function SavingsPanel() {
         <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-[#0e305a]/40 blur-3xl" />
       </Card>
 
-      {/* PANEL 2 - CREATE NEW SAVING */}
       <Card className="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/90 p-5 sm:p-6 shadow-lg shadow-black/30">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-slate-200">
@@ -195,7 +235,6 @@ export function SavingsPanel() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Plan type */}
           <div className="flex flex-col gap-1">
             <label className="text-[11px] uppercase tracking-wide text-slate-400">
               Plan type
@@ -228,7 +267,6 @@ export function SavingsPanel() {
             </div>
           </div>
 
-          {/* Token */}
           <div className="flex flex-col gap-1">
             <label className="text-[11px] uppercase tracking-wide text-slate-400">
               Token
@@ -243,7 +281,6 @@ export function SavingsPanel() {
             </select>
           </div>
 
-          {/* Amount */}
           <div className="flex flex-col gap-1">
             <label className="text-[11px] uppercase tracking-wide text-slate-400">
               Amount ({tokenChoice})
@@ -281,7 +318,6 @@ export function SavingsPanel() {
         </Button>
       </Card>
 
-      {/* PANEL 3 - SAVINGS TABLE / CARDS */}
       <Card className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/90 p-5 sm:p-6 shadow-lg shadow-black/30">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
           Your savings
@@ -307,7 +343,6 @@ export function SavingsPanel() {
 
         {address && savings.length > 0 && (
           <>
-            {/* MOBILE CARDS */}
             <div className="space-y-3 sm:space-y-4 md:hidden">
               {savings.map((s) => (
                 <SavingCard
@@ -321,7 +356,6 @@ export function SavingsPanel() {
               ))}
             </div>
 
-            {/* DESKTOP TABLE */}
             <div className="hidden md:block">
               <SavingsTable
                 savings={savings}
@@ -416,29 +450,23 @@ function SavingRow({
 }) {
   const savingIdBig = BigInt(saving.id)
 
-  const {
-    data: availableRaw,
-    isLoading: availLoad,
-    refetch: refAvail,
-  } = useReadContract({
-    address: ARC_SAVINGS_VAULT,
-    abi: savingsVaultAbi,
-    functionName: 'getAvailable',
-    args: [savingIdBig],
-    chainId: ARC_CHAIN_ID,
-  })
+  const { data: availableRaw, isLoading: availLoad, refetch: refAvail } =
+    useReadContract({
+      address: ARC_SAVINGS_VAULT,
+      abi: savingsVaultAbi,
+      functionName: 'getAvailable',
+      args: [savingIdBig],
+      chainId: ARC_CHAIN_ID,
+    })
 
-  const {
-    data: savingStruct,
-    isLoading: structLoad,
-    refetch: refSave,
-  } = useReadContract({
-    address: ARC_SAVINGS_VAULT,
-    abi: savingsVaultAbi,
-    functionName: 'savings',
-    args: [savingIdBig],
-    chainId: ARC_CHAIN_ID,
-  })
+  const { data: savingStruct, isLoading: structLoad, refetch: refSave } =
+    useReadContract({
+      address: ARC_SAVINGS_VAULT,
+      abi: savingsVaultAbi,
+      functionName: 'savings',
+      args: [savingIdBig],
+      chainId: ARC_CHAIN_ID,
+    })
 
   const planTypeOnchain = readPlanTypeFromStruct(savingStruct as any)
   const isFlex = planTypeOnchain === 0
@@ -450,6 +478,15 @@ function SavingRow({
   const planLabel: PlanType =
     planTypeOnchain === 0 ? 'flex' : planTypeOnchain === 1 ? 'fixed' : saving.planType
 
+  const maturesAtSec = readMaturesAtFromStruct(savingStruct as any)
+  const nowSec = Math.floor(Date.now() / 1000)
+  const matured = maturesAtSec !== null && maturesAtSec > 0 ? maturesAtSec <= nowSec : false
+
+  const releaseLabel =
+    planTypeOnchain === 1 && maturesAtSec && maturesAtSec > 0
+      ? new Date(maturesAtSec * 1000).toLocaleDateString()
+      : '—'
+
   const available = availableRaw ? BigInt(availableRaw as any) : 0n
   const availableHuman = formatUnits(available, 6)
 
@@ -457,9 +494,6 @@ function SavingRow({
 
   const [editing, setEditing] = useState(false)
   const [amount, setAmount] = useState('')
-
-  const now = Date.now()
-  const matured = saving.maturesAt ? new Date(saving.maturesAt).getTime() <= now : false
 
   async function refresh() {
     await Promise.all([refAvail(), refSave()])
@@ -507,7 +541,7 @@ function SavingRow({
     }
   }
 
-  const canShowActions = planTypeOnchain !== null // wait for on-chain truth before showing withdraw buttons
+  const canShowActions = planTypeOnchain !== null
 
   return (
     <tr className="transition-colors hover:bg-slate-900/60">
@@ -535,9 +569,7 @@ function SavingRow({
         {new Date(saving.createdAt).toLocaleString()}
       </td>
 
-      <td className="px-3 py-2 text-[10px] text-slate-400">
-        {saving.maturesAt ? new Date(saving.maturesAt).toLocaleDateString() : '—'}
-      </td>
+      <td className="px-3 py-2 text-[10px] text-slate-400">{releaseLabel}</td>
 
       <td className="px-3 py-2">
         <div className="flex items-center justify-end gap-2">
@@ -616,29 +648,23 @@ function SavingCard({
 }) {
   const savingIdBig = BigInt(saving.id)
 
-  const {
-    data: availableRaw,
-    isLoading: availLoad,
-    refetch: refAvail,
-  } = useReadContract({
-    address: ARC_SAVINGS_VAULT,
-    abi: savingsVaultAbi,
-    functionName: 'getAvailable',
-    args: [savingIdBig],
-    chainId: ARC_CHAIN_ID,
-  })
+  const { data: availableRaw, isLoading: availLoad, refetch: refAvail } =
+    useReadContract({
+      address: ARC_SAVINGS_VAULT,
+      abi: savingsVaultAbi,
+      functionName: 'getAvailable',
+      args: [savingIdBig],
+      chainId: ARC_CHAIN_ID,
+    })
 
-  const {
-    data: savingStruct,
-    isLoading: structLoad,
-    refetch: refSave,
-  } = useReadContract({
-    address: ARC_SAVINGS_VAULT,
-    abi: savingsVaultAbi,
-    functionName: 'savings',
-    args: [savingIdBig],
-    chainId: ARC_CHAIN_ID,
-  })
+  const { data: savingStruct, isLoading: structLoad, refetch: refSave } =
+    useReadContract({
+      address: ARC_SAVINGS_VAULT,
+      abi: savingsVaultAbi,
+      functionName: 'savings',
+      args: [savingIdBig],
+      chainId: ARC_CHAIN_ID,
+    })
 
   const planTypeOnchain = readPlanTypeFromStruct(savingStruct as any)
   const isFlex = planTypeOnchain === 0
@@ -650,6 +676,15 @@ function SavingCard({
   const planLabel: PlanType =
     planTypeOnchain === 0 ? 'flex' : planTypeOnchain === 1 ? 'fixed' : saving.planType
 
+  const maturesAtSec = readMaturesAtFromStruct(savingStruct as any)
+  const nowSec = Math.floor(Date.now() / 1000)
+  const matured = maturesAtSec !== null && maturesAtSec > 0 ? maturesAtSec <= nowSec : false
+
+  const releaseLabel =
+    planTypeOnchain === 1 && maturesAtSec && maturesAtSec > 0
+      ? new Date(maturesAtSec * 1000).toLocaleDateString()
+      : '—'
+
   const available = availableRaw ? BigInt(availableRaw as any) : 0n
   const availableHuman = formatUnits(available, 6)
 
@@ -657,9 +692,6 @@ function SavingCard({
 
   const [editing, setEditing] = useState(false)
   const [amount, setAmount] = useState('')
-
-  const now = Date.now()
-  const matured = saving.maturesAt ? new Date(saving.maturesAt).getTime() <= now : false
 
   async function refresh() {
     await Promise.all([refAvail(), refSave()])
@@ -711,15 +743,12 @@ function SavingCard({
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-4">
-      {/* Top */}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-[11px] font-mono text-slate-400">#{saving.id}</p>
           <p className="text-sm font-semibold text-slate-100">
             {saving.tokenSymbol}{' '}
-            <span className="text-[11px] font-normal text-slate-400">
-              · {planLabel}
-            </span>
+            <span className="text-[11px] font-normal text-slate-400">· {planLabel}</span>
           </p>
           <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-100">
             {planLabel === 'flex' ? (
@@ -741,7 +770,6 @@ function SavingCard({
         </div>
       </div>
 
-      {/* Dates */}
       <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-slate-400">
         <div>
           <p className="uppercase tracking-wide text-[9px] text-slate-500">Created</p>
@@ -749,11 +777,10 @@ function SavingCard({
         </div>
         <div>
           <p className="uppercase tracking-wide text-[9px] text-slate-500">Release</p>
-          <p>{saving.maturesAt ? new Date(saving.maturesAt).toLocaleDateString() : '—'}</p>
+          <p>{releaseLabel}</p>
         </div>
       </div>
 
-      {/* Actions */}
       <div className="mt-3 space-y-2">
         {editing && !closed && (
           <Input
@@ -782,23 +809,13 @@ function SavingCard({
           )}
 
           {!closed && (
-            <Button
-              size="xs"
-              variant="secondary"
-              disabled={busy || !editing}
-              onClick={doDeposit}
-            >
+            <Button size="xs" variant="secondary" disabled={busy || !editing} onClick={doDeposit}>
               Deposit
             </Button>
           )}
 
           {canShowActions && isFlex && !closed && (
-            <Button
-              size="xs"
-              variant="secondary"
-              disabled={busy || !editing}
-              onClick={doFlexWithdraw}
-            >
+            <Button size="xs" variant="secondary" disabled={busy || !editing} onClick={doFlexWithdraw}>
               Withdraw flex
             </Button>
           )}
