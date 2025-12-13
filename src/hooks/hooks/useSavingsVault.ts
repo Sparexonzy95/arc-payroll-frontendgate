@@ -1,7 +1,7 @@
-// src/hooks/hooks/useSavingsVault.ts
+// src/hooks/useSavingsVault.ts
 import { useState } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { parseUnits } from 'viem'
+import { decodeEventLog, parseUnits } from 'viem'
 import toast from 'react-hot-toast'
 
 import { ARC_CHAIN_ID, ARC_SAVINGS_VAULT } from '../../lib/config'
@@ -50,20 +50,6 @@ const erc20Abi = [
   },
 ] as const
 
-function readTokenFromSavingStruct(s: any): `0x${string}` {
-  return (s?.token ?? s?.[1]) as `0x${string}`
-}
-
-function readPlanTypeFromSavingStruct(s: any): number | null {
-  const raw = s?.planType ?? s?.[2]
-  if (raw === undefined || raw === null) return null
-  try {
-    return Number(raw)
-  } catch {
-    return null
-  }
-}
-
 export function useSavingsVault() {
   const { address, chainId } = useAccount()
   const publicClient = usePublicClient({ chainId: ARC_CHAIN_ID })
@@ -100,34 +86,20 @@ export function useSavingsVault() {
   }
 
   // --------------------------------------------------
-  // Read saving struct once (for token + planType)
+  // Approve token if allowance < needed
   // --------------------------------------------------
-  async function readSavingStruct(savingId: bigint) {
+  async function ensureAllowanceForSaving(savingId: bigint, amountAtomic: bigint) {
+    if (amountAtomic === 0n) return
+
     const savingStruct = await publicClient.readContract({
       address: ARC_SAVINGS_VAULT,
       abi: savingsVaultAbi,
       functionName: 'savings',
       args: [savingId],
     })
-    return savingStruct as any
-  }
 
-  // --------------------------------------------------
-  // Approve token if allowance < needed
-  // --------------------------------------------------
-  async function ensureAllowanceForSaving(savingId: bigint, amountAtomic: bigint) {
-    if (amountAtomic === 0n) return
-
-    const savingStruct = await readSavingStruct(savingId)
-    const tokenAddress = readTokenFromSavingStruct(savingStruct)
-
-    console.log('SV_ALLOWANCE_CHECK', {
-      savingId: savingId.toString(),
-      tokenAddress,
-      spender: ARC_SAVINGS_VAULT,
-      account: address,
-      amountAtomic: amountAtomic.toString(),
-    })
+    const sAny = savingStruct as any
+    const tokenAddress = (sAny.token ?? sAny[1]) as `0x${string}`
 
     const currentAllowance = (await publicClient.readContract({
       address: tokenAddress,
@@ -135,10 +107,6 @@ export function useSavingsVault() {
       functionName: 'allowance',
       args: [address as `0x${string}`, ARC_SAVINGS_VAULT],
     })) as bigint
-
-    console.log('SV_ALLOWANCE_CURRENT', {
-      currentAllowance: currentAllowance.toString(),
-    })
 
     if (currentAllowance >= amountAtomic) return
 
@@ -153,8 +121,6 @@ export function useSavingsVault() {
       chainId: ARC_CHAIN_ID,
     })
 
-    console.log('SV_APPROVE_TX', approveHash)
-
     const approveReceipt = await publicClient.waitForTransactionReceipt({
       hash: approveHash,
     })
@@ -166,6 +132,7 @@ export function useSavingsVault() {
 
   // --------------------------------------------------
   // createSaving: returns the on-chain savingId
+  // FIX: extract savingId from SavingCreated event
   // --------------------------------------------------
   async function createSaving(args: CreateSavingArgs): Promise<bigint> {
     const { token, planType, maturesAt } = args
@@ -189,20 +156,35 @@ export function useSavingsVault() {
         chainId: ARC_CHAIN_ID,
       })
 
-      console.log('SV_CREATE_TX', hash)
-
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      checkReceiptOk(receipt, 'Create saving')
       toast.dismiss('sv-create')
+      checkReceiptOk(receipt, 'Create saving')
 
-      const nextSavingId = (await publicClient.readContract({
-        address: ARC_SAVINGS_VAULT,
-        abi: savingsVaultAbi,
-        functionName: 'nextSavingId',
-      })) as bigint
+      // Decode SavingCreated(savingId, owner, token, planType, createdAt, maturesAt)
+      let createdId: bigint | null = null
 
-      const createdId = nextSavingId - 1n
-      console.log('SV_CREATE_DONE', { createdId: createdId.toString() })
+      for (const log of receipt.logs ?? []) {
+        try {
+          const decoded = decodeEventLog({
+            abi: savingsVaultAbi,
+            data: log.data,
+            topics: log.topics as any,
+          })
+
+          if (decoded.eventName === 'SavingCreated') {
+            const savingId = (decoded.args as any).savingId as bigint
+            createdId = savingId
+            break
+          }
+        } catch {
+          // ignore non-matching logs
+        }
+      }
+
+      if (createdId === null) {
+        throw new Error('Could not find SavingCreated event. Cannot determine savingId.')
+      }
+
       toast.success(`Saving #${createdId.toString()} created.`)
       return createdId
     } catch (err) {
@@ -230,17 +212,7 @@ export function useSavingsVault() {
       setLoading(true)
       await ensureArcChain()
 
-      // USDC / EURC = 6 decimals
       const atomic = parseUnits(amount, 6)
-
-      console.log('DEPOSIT_CALL', {
-        savingId: savingId.toString(),
-        amountHuman: amount,
-        amountAtomic: atomic.toString(),
-        chainId: ARC_CHAIN_ID,
-        vault: ARC_SAVINGS_VAULT,
-        account: address,
-      })
 
       await ensureAllowanceForSaving(savingId, atomic)
 
@@ -255,15 +227,11 @@ export function useSavingsVault() {
         chainId: ARC_CHAIN_ID,
       })
 
-      console.log('DEPOSIT_TX_HASH', hash)
-
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      console.log('DEPOSIT_RECEIPT', receipt)
       toast.dismiss('sv-deposit')
 
       checkReceiptOk(receipt, 'Deposit')
       toast.success('Deposit confirmed on-chain.')
-      console.log('DEPOSIT_CONFIRMED', { savingId: savingId.toString() })
     } catch (err) {
       toast.dismiss('sv-deposit')
       console.error('deposit failed', err)
@@ -289,25 +257,7 @@ export function useSavingsVault() {
       setLoading(true)
       await ensureArcChain()
 
-      // Safety guard: ensure this saving is flex ON-CHAIN
-      const savingStruct = await readSavingStruct(savingId)
-      const planType = readPlanTypeFromSavingStruct(savingStruct)
-
-      if (planType !== null && planType !== 0) {
-        // This prevents "not flex" revert + gas waste
-        throw new Error('This saving is not a flex plan')
-      }
-
       const atomic = parseUnits(amount, 6)
-
-      console.log('WITHDRAW_FLEX_CALL', {
-        savingId: savingId.toString(),
-        amountHuman: amount,
-        amountAtomic: atomic.toString(),
-        chainId: ARC_CHAIN_ID,
-        vault: ARC_SAVINGS_VAULT,
-        account: address,
-      })
 
       toast.loading('Withdrawing from flex saving…', { id: 'sv-wflex' })
 
@@ -320,21 +270,14 @@ export function useSavingsVault() {
         chainId: ARC_CHAIN_ID,
       })
 
-      console.log('WITHDRAW_FLEX_TX_HASH', hash)
-
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      console.log('WITHDRAW_FLEX_RECEIPT', receipt)
       toast.dismiss('sv-wflex')
 
       checkReceiptOk(receipt, 'Flex withdrawal')
       toast.success('Flex withdrawal confirmed.')
-    } catch (err: any) {
+    } catch (err) {
       toast.dismiss('sv-wflex')
       console.error('withdrawFlex failed', err)
-      // show nicer message if it’s our guard
-      if (String(err?.message || '').toLowerCase().includes('not a flex')) {
-        toast.error('This saving is fixed, use Withdraw fixed.')
-      }
       throw err
     } finally {
       setLoading(false)
@@ -351,13 +294,6 @@ export function useSavingsVault() {
       setLoading(true)
       await ensureArcChain()
 
-      console.log('WITHDRAW_FIXED_CALL', {
-        savingId: savingId.toString(),
-        chainId: ARC_CHAIN_ID,
-        vault: ARC_SAVINGS_VAULT,
-        account: address,
-      })
-
       toast.loading('Withdrawing fixed saving…', { id: 'sv-wfixed' })
 
       const hash = await walletClient!.writeContract({
@@ -369,10 +305,7 @@ export function useSavingsVault() {
         chainId: ARC_CHAIN_ID,
       })
 
-      console.log('WITHDRAW_FIXED_TX_HASH', hash)
-
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      console.log('WITHDRAW_FIXED_RECEIPT', receipt)
       toast.dismiss('sv-wfixed')
 
       checkReceiptOk(receipt, 'Fixed withdrawal')
