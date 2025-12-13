@@ -1,6 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "https://api.arcflow.space/api/:path*" },
-    { "source": "/(.*)", "destination": "/" }
+  "routes": [
+    { "src": "^/api/(.*)$", "dest": "https://api.arcflow.space/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "^/(.*)$", "dest": "/" }
   ]
 }
