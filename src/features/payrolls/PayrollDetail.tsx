@@ -16,8 +16,8 @@ import {
   useAccount,
   useChainId,
   useSwitchChain,
+  useSendTransaction,
   useWriteContract,
-  useWalletClient,
 } from 'wagmi'
 import { erc20Abi } from 'viem'
 import toast from 'react-hot-toast'
@@ -36,11 +36,18 @@ type FundCallPayload = CallPayload & {
   deficit_human: string
 }
 
-function atomicToHuman(amountAtomic: string | number | bigint, decimals = 6): string {
+function atomicToHuman(
+  amountAtomic: string | number | bigint,
+  decimals = 6
+): string {
   const big =
     typeof amountAtomic === 'bigint'
       ? amountAtomic
-      : BigInt(typeof amountAtomic === 'number' ? Math.trunc(amountAtomic) : amountAtomic)
+      : BigInt(
+          typeof amountAtomic === 'number'
+            ? Math.trunc(amountAtomic)
+            : amountAtomic
+        )
 
   if (decimals === 0) return big.toString()
 
@@ -50,7 +57,11 @@ function atomicToHuman(amountAtomic: string | number | bigint, decimals = 6): st
 
   if (fraction === 0n) return whole.toString()
 
-  const fracStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '')
+  const fracStr = fraction
+    .toString()
+    .padStart(decimals, '0')
+    .replace(/0+$/, '')
+
   return `${whole.toString()}.${fracStr}`
 }
 
@@ -64,16 +75,6 @@ function getExplorerBaseUrl(chainId?: number | null): string | null {
     default:
       return null
   }
-}
-
-function to0x(hexLike: string): `0x${string}` {
-  if (!hexLike) throw new Error('Missing calldata')
-  return (hexLike.startsWith('0x') ? hexLike : `0x${hexLike}`) as `0x${string}`
-}
-
-function toAddr(a: string): `0x${string}` {
-  if (!a) throw new Error('Missing to address')
-  return a as `0x${string}`
 }
 
 export function PayrollDetail() {
@@ -90,14 +91,16 @@ export function PayrollDetail() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const { switchChainAsync } = useSwitchChain()
-  const { data: walletClient } = useWalletClient()
+  const { sendTransactionAsync, status: txStatus } = useSendTransaction()
   const { writeContractAsync: approveAsync } = useWriteContract()
 
   const [verifyingId, setVerifyingId] = useState<number | null>(null)
+
   const [leftoversHuman, setLeftoversHuman] = useState<string | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
 
+  // prepared calls (NO waiting inside click)
   const [preparedCreate, setPreparedCreate] = useState<CallPayload | null>(null)
   const [preparedFund, setPreparedFund] = useState<FundCallPayload | null>(null)
   const [preparedSetReward, setPreparedSetReward] = useState<CallPayload | null>(null)
@@ -125,7 +128,10 @@ export function PayrollDetail() {
   }
 
   const chain = useMemo(() => findChain(), [payroll, chains])
-  const token = useMemo(() => findTokenByAddress(payroll?.default_token_address), [payroll?.default_token_address, tokens])
+  const token = useMemo(
+    () => findTokenByAddress(payroll?.default_token_address),
+    [payroll?.default_token_address, tokens]
+  )
   const explorerBase = getExplorerBaseUrl(chain?.chain_id)
 
   const ensureConnected = () => {
@@ -133,22 +139,7 @@ export function PayrollDetail() {
       toast.error('Connect your wallet first')
       return false
     }
-    if (!walletClient) {
-      toast.error('Wallet not ready yet, reopen wallet and try again.')
-      return false
-    }
     return true
-  }
-
-  const sendRaw = async (call: CallPayload) => {
-    if (!walletClient) throw new Error('Wallet not ready')
-    const hash = await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: undefined, // wagmi will use current connected chain
-      to: toAddr(call.to),
-      data: to0x(call.data),
-    })
-    return hash
   }
 
   // -----------------------------
@@ -185,17 +176,18 @@ export function PayrollDetail() {
   }, [payroll?.id, payroll?.default_token_address, tokens])
 
   // -----------------------------
-  // Background polling
+  // Background polling for payroll + funding + payments
   // -----------------------------
   useEffect(() => {
     if (!id) return
     let cancelled = false
+    const REFRESH_MS = 2500
     const interval = window.setInterval(() => {
       if (cancelled) return
       refetch()
       refetchFunding()
       refetchPayments()
-    }, 2500)
+    }, REFRESH_MS)
     return () => {
       cancelled = true
       window.clearInterval(interval)
@@ -203,7 +195,7 @@ export function PayrollDetail() {
   }, [id, refetch, refetchFunding, refetchPayments])
 
   // -----------------------------
-  // PREPARE CALLS
+  // PREPARE CALLS (background)
   // -----------------------------
   const prepareCreate = useCallback(async () => {
     if (!dbId || !payroll) return
@@ -248,10 +240,13 @@ export function PayrollDetail() {
 
     const rewardPerDispatchHuman = '0.01'
     const rewardPerDispatchNum = 0.01
-    const rewardPoolTotalNum = totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
+    const rewardPoolTotalNum =
+      totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
 
     const rewardPoolTotalHuman =
-      rewardPoolTotalNum > 0 ? rewardPoolTotalNum.toFixed(decimals) : '0'.padEnd(decimals + 2, '0')
+      rewardPoolTotalNum > 0
+        ? rewardPoolTotalNum.toFixed(decimals)
+        : '0'.padEnd(decimals + 2, '0')
 
     try {
       setPreparing((s) => ({ ...s, fund: true }))
@@ -264,16 +259,16 @@ export function PayrollDetail() {
 
       if (rewardPoolTotalNum > 0 && totalPayments > 0) {
         try {
-          const resSet = await api.post(`/api/payrolls/payrolls/${dbId}/set_relayer_reward/`, {
-            token_address: tokenAddress,
-            reward_human: rewardPerDispatchHuman,
-          })
+          const resSet = await api.post(
+            `/api/payrolls/payrolls/${dbId}/set_relayer_reward/`,
+            { token_address: tokenAddress, reward_human: rewardPerDispatchHuman }
+          )
           setPreparedSetReward(resSet.data as CallPayload)
 
-          const resReward = await api.post(`/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`, {
-            token_address: tokenAddress,
-            amount_human: rewardPoolTotalHuman,
-          })
+          const resReward = await api.post(
+            `/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`,
+            { token_address: tokenAddress, amount_human: rewardPoolTotalHuman }
+          )
           setPreparedFundReward(resReward.data as CallPayload)
         } catch (err) {
           console.error('prepare reward calls failed (non-fatal)', err)
@@ -301,6 +296,7 @@ export function PayrollDetail() {
       return
     }
     if (preparing.finalize) return
+
     try {
       setPreparing((s) => ({ ...s, finalize: true }))
       const res = await api.post(`/api/payrolls/payrolls/${dbId}/finalize/`)
@@ -362,7 +358,9 @@ export function PayrollDetail() {
   }, [prepareWithdraw])
 
   // -----------------------------
-  // Chain switch button
+  // IMPORTANT: Mobile-safe actions
+  // No await BEFORE wallet prompt.
+  // If chain wrong, user must switch first.
   // -----------------------------
   const onSwitchChainClick = async (target: number) => {
     if (!ensureConnected()) return
@@ -375,18 +373,28 @@ export function PayrollDetail() {
     }
   }
 
-  // -----------------------------
-  // ACTIONS (mobile safe)
-  // -----------------------------
   const handleCreateOnchain = async () => {
     if (!ensureConnected()) return
-    if (!preparedCreate) return toast.error('Still preparing create call, try again.')
-    if (chainId !== preparedCreate.chainId) return toast.error('Wrong network, switch chain first.')
+    if (!preparedCreate) {
+      toast.error('Still preparing create call. Wait 2 seconds and try again.')
+      return
+    }
+    if (chainId !== preparedCreate.chainId) {
+      toast.error('Wrong network. Switch chain first.')
+      return
+    }
 
+    // ✅ wallet prompt immediately (no awaits before this line)
     try {
       toast.loading('Confirm in wallet...', { id: 'create' })
-      const hash = await sendRaw(preparedCreate)
+      const hash = await sendTransactionAsync({
+        to: preparedCreate.to as `0x${string}`,
+        data: preparedCreate.data as `0x${string}`,
+        chainId: preparedCreate.chainId,
+      })
       toast.success(`Submitted: ${hash.slice(0, 10)}...`, { id: 'create' })
+
+      // backend sync AFTER wallet prompt (safe)
       setTimeout(() => {
         if (payroll?.id) api.post(`/api/payrolls/payrolls/${payroll.id}/sync_now/`).catch(() => {})
       }, 2000)
@@ -397,13 +405,22 @@ export function PayrollDetail() {
 
   const handleFundPayroll = async () => {
     if (!ensureConnected()) return
-    if (!preparedFund) return toast.error('Still preparing fund call, try again.')
-    if (chainId !== preparedFund.chainId) return toast.error('Wrong network, switch chain first.')
+    if (!preparedFund) {
+      toast.error('Still preparing fund call. Wait 2 seconds and try again.')
+      return
+    }
+    if (chainId !== preparedFund.chainId) {
+      toast.error('Wrong network. Switch chain first.')
+      return
+    }
 
     const tokenAddress = (payroll?.default_token_address ||
       funding?.summary?.[0]?.token_address) as `0x${string}` | undefined
 
-    if (!tokenAddress) return toast.error('Missing token for funding')
+    if (!tokenAddress) {
+      toast.error('Missing token for funding')
+      return
+    }
 
     const totalPayments =
       typeof payroll?.total_payments === 'number'
@@ -414,40 +431,62 @@ export function PayrollDetail() {
     const decimals = tokenMeta?.decimals ?? 6
 
     const rewardPerDispatchNum = 0.01
-    const rewardPoolTotalNum = totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
+    const rewardPoolTotalNum =
+      totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
+
     const rewardPoolAtomic =
-      rewardPoolTotalNum > 0 ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals)) : 0n
+      rewardPoolTotalNum > 0
+        ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals))
+        : 0n
 
     const escrowDeficitAtomic = BigInt(preparedFund.deficit_atomic)
-    const extraRewardAtomic = preparedSetReward && preparedFundReward ? rewardPoolAtomic : 0n
+    const extraRewardAtomic =
+      preparedSetReward && preparedFundReward ? rewardPoolAtomic : 0n
+
     const totalApproveAmount = escrowDeficitAtomic + extraRewardAtomic
 
     try {
+      // ✅ wallet prompt quickly (approve is the first wallet action)
       toast.loading('Approve in wallet...', { id: 'fund' })
       await approveAsync({
         address: tokenAddress,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [toAddr(preparedFund.to), totalApproveAmount],
+        args: [preparedFund.to as `0x${string}`, totalApproveAmount],
         chainId: preparedFund.chainId,
       })
 
       if (preparedSetReward) {
         toast.loading('Confirm reward config...', { id: 'fund' })
-        await sendRaw(preparedSetReward)
+        await sendTransactionAsync({
+          to: preparedSetReward.to as `0x${string}`,
+          data: preparedSetReward.data as `0x${string}`,
+          chainId: preparedSetReward.chainId,
+        })
       }
 
       toast.loading('Confirm fund tx...', { id: 'fund' })
-      const hash = await sendRaw(preparedFund)
+      const hash = await sendTransactionAsync({
+        to: preparedFund.to as `0x${string}`,
+        data: preparedFund.data as `0x${string}`,
+        chainId: preparedFund.chainId,
+      })
 
       if (preparedFundReward) {
         toast.loading('Confirm reward funding...', { id: 'fund' })
-        await sendRaw(preparedFundReward)
+        await sendTransactionAsync({
+          to: preparedFundReward.to as `0x${string}`,
+          data: preparedFundReward.data as `0x${string}`,
+          chainId: preparedFundReward.chainId,
+        })
       }
 
       toast.success(`Funded: ${hash.slice(0, 10)}...`, { id: 'fund' })
 
-      if (dbId) api.post(`/api/payrolls/payrolls/${dbId}/sync_funding/`).catch(() => {})
+      // backend sync AFTER
+      if (dbId) {
+        api.post(`/api/payrolls/payrolls/${dbId}/sync_funding/`).catch(() => {})
+      }
       refetchFunding()
       refetch()
       prepareFund()
@@ -458,13 +497,23 @@ export function PayrollDetail() {
 
   const handleFinalizePayroll = async () => {
     if (!ensureConnected()) return
-    if (!preparedFinalize) return toast.error('Still preparing finalize call, try again.')
-    if (chainId !== preparedFinalize.chainId) return toast.error('Wrong network, switch chain first.')
+    if (!preparedFinalize) {
+      toast.error('Still preparing finalize call. Wait and try again.')
+      return
+    }
+    if (chainId !== preparedFinalize.chainId) {
+      toast.error('Wrong network. Switch chain first.')
+      return
+    }
 
     try {
       setFinalizing(true)
       toast.loading('Confirm finalize...', { id: 'finalize' })
-      await sendRaw(preparedFinalize)
+      await sendTransactionAsync({
+        to: preparedFinalize.to as `0x${string}`,
+        data: preparedFinalize.data as `0x${string}`,
+        chainId: preparedFinalize.chainId,
+      })
       toast.success('Finalize submitted', { id: 'finalize' })
       await refetch()
       await refetchPayments()
@@ -479,13 +528,23 @@ export function PayrollDetail() {
 
   const handleWithdrawLeftovers = async () => {
     if (!ensureConnected()) return
-    if (!preparedWithdraw) return toast.error('Still preparing withdraw call, try again.')
-    if (chainId !== preparedWithdraw.chainId) return toast.error('Wrong network, switch chain first.')
+    if (!preparedWithdraw) {
+      toast.error('Still preparing withdraw call. Wait and try again.')
+      return
+    }
+    if (chainId !== preparedWithdraw.chainId) {
+      toast.error('Wrong network. Switch chain first.')
+      return
+    }
 
     try {
       setWithdrawing(true)
       toast.loading('Confirm withdraw...', { id: 'withdraw' })
-      await sendRaw(preparedWithdraw)
+      await sendTransactionAsync({
+        to: preparedWithdraw.to as `0x${string}`,
+        data: preparedWithdraw.data as `0x${string}`,
+        chainId: preparedWithdraw.chainId,
+      })
       toast.success('Withdraw submitted', { id: 'withdraw' })
       await refetchFunding()
       await refetch()
@@ -501,11 +560,15 @@ export function PayrollDetail() {
   async function handleVerifyOnchain(paymentId: number) {
     try {
       setVerifyingId(paymentId)
+
       const res = await api.get(`/api/payrolls/payments/${paymentId}/verify_onchain/`)
       const data = res.data as {
+        status_db: string
         onchain_is_processed: boolean | null
         receipt_status: number | null
+        tx_hash?: string | null
         chain_name?: string
+        chain_id?: number
       }
 
       if (data.onchain_is_processed && data.receipt_status === 1) {
@@ -520,7 +583,11 @@ export function PayrollDetail() {
       await refetchFunding()
       await refetch()
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || err?.message || 'Failed to verify on chain')
+      const msg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        'Failed to verify on chain'
+      toast.error(msg)
     } finally {
       setVerifyingId(null)
     }
@@ -547,6 +614,7 @@ export function PayrollDetail() {
     )
   }
 
+  // target chain for create/fund buttons
   const targetCreateChainId = preparedCreate?.chainId ?? chain?.chain_id ?? null
   const targetFundChainId = preparedFund?.chainId ?? chain?.chain_id ?? null
 
@@ -557,6 +625,7 @@ export function PayrollDetail() {
 
   return (
     <div className="space-y-5">
+      {/* Header / meta */}
       <Card className="space-y-4 border border-slate-800/80 bg-slate-950/80 p-5 shadow-lg shadow-sky-500/10">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-1">
@@ -578,6 +647,39 @@ export function PayrollDetail() {
           </div>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-1 text-sm text-slate-200">
+            <p className="font-semibold text-slate-400">Chain</p>
+            {chain ? (
+              <p className="flex items-center gap-2">
+                <ChainBadge name={chain.name} chainId={chain.chain_id} />
+              </p>
+            ) : (
+              <p className="text-slate-500">Unknown chain</p>
+            )}
+          </div>
+
+          <div className="space-y-1 text-sm text-slate-200">
+            <p className="font-semibold text-slate-400">Default token</p>
+            {token ? (
+              <p className="font-mono text-xs">
+                {token.symbol} · {token.address.slice(0, 6)}…{token.address.slice(-4)}
+              </p>
+            ) : (
+              <p className="text-slate-500">Unknown token</p>
+            )}
+          </div>
+
+          <div className="space-y-1 text-sm text-slate-200">
+            <p className="font-semibold text-slate-400">Totals</p>
+            <p className="font-mono text-xs">
+              Net: {payroll.total_net_amount} · Tax: {payroll.total_tax_amount}
+            </p>
+            <p className="text-slate-500 text-xs">{payroll.total_payments} scheduled payments</p>
+          </div>
+        </div>
+
+        {/* Actions */}
         <div className="flex flex-wrap gap-2.5">
           {payroll.status === 'draft' && (
             <>
@@ -591,6 +693,7 @@ export function PayrollDetail() {
                   variant="primary"
                   onClick={handleCreateOnchain}
                   disabled={!preparedCreate || preparing.create}
+                  loading={txStatus === 'pending'}
                 >
                   {preparing.create ? 'Preparing…' : preparedCreate ? 'Create on-chain' : 'Preparing…'}
                 </Button>
@@ -617,6 +720,10 @@ export function PayrollDetail() {
             </>
           )}
         </div>
+
+        <p className="text-[11px] text-slate-500">
+          Mobile fix: no backend calls or chain switching happens inside “Create/Fund” tap. Switch chain first, then tap action.
+        </p>
       </Card>
 
       {/* Funding */}
@@ -624,6 +731,7 @@ export function PayrollDetail() {
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-100">Funding</h3>
         </div>
+
         {funding ? (
           funding.summary.length === 0 ? (
             <p className="text-sm text-slate-400">
@@ -649,9 +757,15 @@ export function PayrollDetail() {
                           <td className="px-3 py-2.5 align-middle">
                             {t ? t.symbol : item.token_address}
                           </td>
-                          <td className="px-3 py-2.5 align-middle text-right font-mono">{item.required}</td>
-                          <td className="px-3 py-2.5 align-middle text-right font-mono">{item.funded}</td>
-                          <td className="px-3 py-2.5 align-middle text-right font-mono">{item.deficit}</td>
+                          <td className="px-3 py-2.5 align-middle text-right font-mono">
+                            {item.required}
+                          </td>
+                          <td className="px-3 py-2.5 align-middle text-right font-mono">
+                            {item.funded}
+                          </td>
+                          <td className="px-3 py-2.5 align-middle text-right font-mono">
+                            {item.deficit}
+                          </td>
                         </tr>
                       )
                     })}
@@ -663,6 +777,66 @@ export function PayrollDetail() {
         ) : (
           <p className="text-sm text-slate-400">Loading funding…</p>
         )}
+      </Card>
+
+      {/* Lifecycle & leftovers */}
+      <Card className="space-y-3 border border-slate-800/80 bg-slate-950/80 p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-100">Lifecycle & leftovers</h3>
+        </div>
+
+        <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-3">
+          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
+            <p className="font-semibold text-slate-400 text-xs">Payroll status</p>
+            <p className="font-mono text-xs">{payroll.status}</p>
+          </div>
+
+          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
+            <p className="font-semibold text-slate-400 text-xs">
+              Leftover balance (default token)
+            </p>
+            {leftoversHuman != null ? (
+              <p className="font-mono text-xs">
+                {leftoversHuman} {token ? token.symbol : ''}
+              </p>
+            ) : (
+              <p className="text-slate-500 text-xs">—</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
+            <p className="font-semibold text-slate-400 text-xs">Actions</p>
+            <div className="flex flex-wrap gap-2">
+              {payroll.status !== 'finalized' && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleFinalizePayroll}
+                  disabled={!preparedFinalize || preparing.finalize}
+                  loading={finalizing}
+                >
+                  {preparing.finalize ? 'Preparing…' : 'Finalize payroll'}
+                </Button>
+              )}
+
+              {leftoversHuman && parseFloat(leftoversHuman) > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleWithdrawLeftovers}
+                  disabled={!preparedWithdraw || preparing.withdraw}
+                  loading={withdrawing}
+                >
+                  {preparing.withdraw ? 'Preparing…' : 'Withdraw leftovers'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-slate-500">
+          Finalize when all scheduled payments are done. After finalization, you can withdraw leftover escrow.
+        </p>
       </Card>
 
       {/* Payments */}
@@ -697,27 +871,41 @@ export function PayrollDetail() {
 
                     const fullTx =
                       p.dispatched_tx_hash &&
-                      (p.dispatched_tx_hash.startsWith('0x') ? p.dispatched_tx_hash : `0x${p.dispatched_tx_hash}`)
+                      (p.dispatched_tx_hash.startsWith('0x')
+                        ? p.dispatched_tx_hash
+                        : `0x${p.dispatched_tx_hash}`)
 
-                    const txLink = explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
+                    const txLink =
+                      explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
 
                     return (
                       <tr key={p.id} className="transition hover:bg-slate-900/60">
-                        <td className="px-3 py-2.5 align-middle font-mono text-xs">{p.payroll_index}</td>
+                        <td className="px-3 py-2.5 align-middle font-mono text-xs">
+                          {p.payroll_index}
+                        </td>
                         <td className="px-3 py-2.5 align-middle font-mono text-xs">
                           {p.employee_address.slice(0, 6)}…{p.employee_address.slice(-4)}
                         </td>
                         <td className="px-3 py-2.5 align-middle">
                           {t ? t.symbol : p.token_address.slice(0, 6) + '…'}
                         </td>
-                        <td className="px-3 py-2.5 align-middle text-right font-mono text-xs">{p.net_amount_atomic}</td>
-                        <td className="px-3 py-2.5 align-middle text-right font-mono text-xs">{p.tax_amount_atomic}</td>
+                        <td className="px-3 py-2.5 align-middle text-right font-mono text-xs">
+                          {p.net_amount_atomic}
+                        </td>
+                        <td className="px-3 py-2.5 align-middle text-right font-mono text-xs">
+                          {p.tax_amount_atomic}
+                        </td>
                         <td className="px-3 py-2.5 align-middle">
                           <StatusPill status={p.status} />
                         </td>
                         <td className="px-3 py-2.5 align-middle font-mono text-xs">
                           {txLink && shortTx ? (
-                            <a href={txLink} target="_blank" rel="noreferrer" className="underline decoration-dotted">
+                            <a
+                              href={txLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline decoration-dotted"
+                            >
                               {shortTx}
                             </a>
                           ) : (
@@ -744,57 +932,6 @@ export function PayrollDetail() {
         ) : (
           <p className="text-xs text-slate-400">No payments found.</p>
         )}
-      </Card>
-
-      {/* Lifecycle */}
-      <Card className="space-y-3 border border-slate-800/80 bg-slate-950/80 p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-100">Lifecycle & leftovers</h3>
-        </div>
-
-        <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-3">
-          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
-            <p className="font-semibold text-slate-400 text-xs">Payroll status</p>
-            <p className="font-mono text-xs">{payroll.status}</p>
-          </div>
-
-          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
-            <p className="font-semibold text-slate-400 text-xs">Leftover balance</p>
-            {leftoversHuman != null ? (
-              <p className="font-mono text-xs">{leftoversHuman} {token ? token.symbol : ''}</p>
-            ) : (
-              <p className="text-slate-500 text-xs">—</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
-            <p className="font-semibold text-slate-400 text-xs">Actions</p>
-            <div className="flex flex-wrap gap-2">
-              {payroll.status !== 'finalized' && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleFinalizePayroll}
-                  disabled={!preparedFinalize || preparing.finalize}
-                  loading={finalizing}
-                >
-                  {preparing.finalize ? 'Preparing…' : 'Finalize payroll'}
-                </Button>
-              )}
-              {leftoversHuman && parseFloat(leftoversHuman) > 0 && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleWithdrawLeftovers}
-                  disabled={!preparedWithdraw || preparing.withdraw}
-                  loading={withdrawing}
-                >
-                  {preparing.withdraw ? 'Preparing…' : 'Withdraw leftovers'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
       </Card>
     </div>
   )
