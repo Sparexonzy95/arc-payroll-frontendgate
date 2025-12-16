@@ -1,5 +1,5 @@
 // src/features/payrolls/PayrollDetail.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   usePayroll,
@@ -80,16 +80,34 @@ function getExplorerBaseUrl(chainId?: number | null): string | null {
   }
 }
 
+/**
+ * Wait until wagmi's useChainId reflects targetChainId.
+ * This is the key mobile fix: many mobile wallets switch slowly.
+ */
+async function waitForChainId(
+  getCurrentChainId: () => number | undefined,
+  targetChainId: number,
+  opts?: { timeoutMs?: number; pollMs?: number }
+) {
+  const timeoutMs = opts?.timeoutMs ?? 15_000
+  const pollMs = opts?.pollMs ?? 250
+
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const current = getCurrentChainId()
+    if (current === targetChainId) return
+    await new Promise((r) => setTimeout(r, pollMs))
+  }
+  throw new Error('Wallet did not switch network in time. Try again.')
+}
+
 export function PayrollDetail() {
   const params = useParams()
   const id = params.id ? Number(params.id) : undefined
 
   const { data: payroll, isLoading, error, refetch } = usePayroll(id)
   const { data: funding, refetch: refetchFunding } = usePayrollFunding(id)
-  const {
-    data: payments,
-    refetch: refetchPayments,
-  } = usePayrollPayments(id)
+  const { data: payments, refetch: refetchPayments } = usePayrollPayments(id)
 
   const { data: chains } = useChains()
   const { data: tokens } = useTokens()
@@ -107,7 +125,6 @@ export function PayrollDetail() {
   const [leftoversHuman, setLeftoversHuman] = useState<string | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
-
   const [creatingOnchain, setCreatingOnchain] = useState(false)
 
   function findChain() {
@@ -120,6 +137,67 @@ export function PayrollDetail() {
     return tokens.find((t) => t.address.toLowerCase() === addr.toLowerCase())
   }
 
+  const chain = useMemo(() => findChain(), [payroll, chains])
+  const token = useMemo(
+    () => findTokenByAddress(payroll?.default_token_address),
+    [payroll?.default_token_address, tokens]
+  )
+
+  const requiredChainId = chain?.chain_id
+  const explorerBase = getExplorerBaseUrl(requiredChainId)
+
+  const isWrongNetwork =
+    !!requiredChainId && !!chainId && chainId !== requiredChainId
+
+  const canUsePageActions =
+    isConnected && !!address && !!requiredChainId && chainId === requiredChainId
+
+  /**
+   * Enforce correct chain before ANY action.
+   * - On mobile, we must wait until wagmi sees the new chainId.
+   */
+  const ensureCorrectChain = useCallback(
+    async (targetChainId: number) => {
+      if (!isConnected || !address) {
+        toast.error('Connect your wallet first')
+        throw new Error('Wallet not connected')
+      }
+
+      if (chainId === targetChainId) return
+
+      if (!switchChainAsync) {
+        toast.error('Your wallet does not support programmatic network switching')
+        throw new Error('switchChainAsync unavailable')
+      }
+
+      toast.loading('Switching network...', { id: 'switch-chain' })
+      await switchChainAsync({ chainId: targetChainId })
+
+      // wait until wagmi actually reflects the new chain
+      await waitForChainId(() => chainId, targetChainId).catch(async () => {
+        // wagmi hook value might be stale inside this closure on some setups,
+        // so do a second pass after a short delay:
+        await new Promise((r) => setTimeout(r, 600))
+        await waitForChainId(() => chainId, targetChainId, {
+          timeoutMs: 12_000,
+          pollMs: 300,
+        })
+      })
+
+      toast.success('Network switched', { id: 'switch-chain' })
+    },
+    [isConnected, address, chainId, switchChainAsync]
+  )
+
+  const handleSwitchNetworkClick = useCallback(async () => {
+    if (!requiredChainId) return
+    try {
+      await ensureCorrectChain(requiredChainId)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to switch network')
+    }
+  }, [requiredChainId, ensureCorrectChain])
+
   // ---------------------------------------------
   // Leftover funds: background-only polling
   // ---------------------------------------------
@@ -128,7 +206,7 @@ export function PayrollDetail() {
     if (!tokens) return
 
     let cancelled = false
-    const REFRESH_MS = 6000 // was 8000
+    const REFRESH_MS = 6000
 
     const fetchLeftovers = async () => {
       try {
@@ -138,20 +216,14 @@ export function PayrollDetail() {
         const tokenMeta = findTokenByAddress(payroll.default_token_address)
         const decimals = tokenMeta?.decimals ?? 6
         const human = atomicToHuman(BigInt(raw), decimals)
-        if (!cancelled) {
-          setLeftoversHuman(human)
-        }
+        if (!cancelled) setLeftoversHuman(human)
       } catch (e) {
         console.error('Failed to load leftovers', e)
-        if (!cancelled) {
-          setLeftoversHuman(null)
-        }
+        if (!cancelled) setLeftoversHuman(null)
       }
     }
 
-    // initial load
     fetchLeftovers()
-    // periodic refresh
     const interval = window.setInterval(fetchLeftovers, REFRESH_MS)
 
     return () => {
@@ -163,15 +235,17 @@ export function PayrollDetail() {
 
   // ---------------------------------------------
   // Background polling for payroll + funding + payments
+  // (skip aggressive polling while tx is pending to reduce mobile weirdness)
   // ---------------------------------------------
   useEffect(() => {
     if (!id) return
 
     let cancelled = false
-    const REFRESH_MS = 2500 // was 4000, faster so status/funding update quicker
+    const REFRESH_MS = 2500
 
     const interval = window.setInterval(() => {
       if (cancelled) return
+      if (txStatus === 'pending') return
       refetch()
       refetchFunding()
       refetchPayments()
@@ -181,275 +255,250 @@ export function PayrollDetail() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [id, refetch, refetchFunding, refetchPayments])
+  }, [id, refetch, refetchFunding, refetchPayments, txStatus])
 
   // ---------------------------------------------
   // Actions
   // ---------------------------------------------
- async function handleCreateOnchain() {
-  if (!id || !payroll) return
-  if (!isConnected || !address) {
-    toast.error('Connect your wallet first')
-    return
+  async function syncPayrollNow() {
+    if (!payroll || !payroll.id) return
+    try {
+      await api.post(`/api/payrolls/payrolls/${payroll.id}/sync_now/`)
+      await refetch()
+    } catch (err) {
+      console.error('sync_now failed', err)
+    }
   }
 
-  // prevent multiple clicks while in flight
-  if (creatingOnchain) {
-    return
-  }
-
-  try {
-    setCreatingOnchain(true)
-
-    toast.loading('Preparing transaction...', { id: 'create-onchain' })
-    const call = await createOnchainMutation.mutateAsync(id)
-
-    if (chainId !== call.chainId && switchChainAsync) {
-      toast.loading('Switching chain...', { id: 'create-onchain' })
-      await switchChainAsync({ chainId: call.chainId })
+  async function handleCreateOnchain() {
+    if (!id || !payroll) return
+    if (!requiredChainId) {
+      toast.error('Payroll chain not resolved yet')
+      return
     }
 
-    toast.loading('Confirm transaction in wallet...', {
-      id: 'create-onchain',
-    })
+    if (creatingOnchain) return
 
-    const hash = await sendTransactionAsync({
-      to: call.to as `0x${string}`,
-      data: call.data as `0x${string}`,
-    })
+    try {
+      setCreatingOnchain(true)
 
-    toast.success(`Transaction submitted: ${hash.slice(0, 10)}...`, {
-      id: 'create-onchain',
-    })
+      // enforce correct chain BEFORE building/sending tx
+      await ensureCorrectChain(requiredChainId)
 
-    // 🔥 call the new sync_now endpoint once the tx is out
-    // this should flip draft -> created_onchain as soon as
-    // the on-chain state is visible
-    setTimeout(() => {
-      syncPayrollNow()
-    }, 2000)
+      toast.loading('Preparing transaction...', { id: 'create-onchain' })
+      const call = await createOnchainMutation.mutateAsync(id)
 
-    // backup: extra refetches in case Celery beats do the update
-    setTimeout(() => {
-      refetch()
-    }, 4000)
-  } catch (err: any) {
-    console.error(err)
-    const msg =
-      err?.shortMessage || err?.message || 'Failed to create payroll on-chain'
-    toast.error(msg, { id: 'create-onchain' })
-  } finally {
-    setCreatingOnchain(false)
+      // if backend returns a different chainId, respect it
+      if (call?.chainId && call.chainId !== requiredChainId) {
+        await ensureCorrectChain(call.chainId)
+      }
+
+      toast.loading('Confirm transaction in wallet...', { id: 'create-onchain' })
+      const hash = await sendTransactionAsync({
+        chainId: call.chainId,
+        to: call.to as `0x${string}`,
+        data: call.data as `0x${string}`,
+      })
+
+      toast.success(`Transaction submitted: ${hash.slice(0, 10)}...`, {
+        id: 'create-onchain',
+      })
+
+      setTimeout(() => {
+        syncPayrollNow()
+      }, 2000)
+
+      setTimeout(() => {
+        refetch()
+      }, 4000)
+    } catch (err: any) {
+      console.error(err)
+      const msg =
+        err?.shortMessage || err?.message || 'Failed to create payroll on-chain'
+      toast.error(msg, { id: 'create-onchain' })
+    } finally {
+      setCreatingOnchain(false)
+    }
   }
-}
-
-
-async function syncPayrollNow() {
-  if (!payroll || !payroll.id) return
-
-  try {
-    // hit the new backend endpoint
-    await api.post(`/api/payrolls/payrolls/${payroll.id}/sync_now/`)
-    // then refetch React Query cache
-    await refetch()
-  } catch (err) {
-    console.error('sync_now failed', err)
-  }
-}
-
-
-
 
   /**
    * FUND PAYROLL (escrow + relayer gas)
    */
- async function handleFundPayroll() {
-  if (!payroll) {
-    toast.error('No payroll loaded')
-    return
-  }
-
-  if (!isConnected || !address) {
-    toast.error('Connect your wallet to fund')
-    return
-  }
-
-  const dbId = payroll.id ?? id
-  if (!dbId) {
-    toast.error('Missing payroll id')
-    return
-  }
-
-  try {
-    // For now we fund the default token only (you can add UI to choose later)
-    const tokenAddress = (payroll.default_token_address ||
-      funding?.summary?.[0]?.token_address) as `0x${string}`
-
-    if (!tokenAddress) {
-      toast.error('No token address available for funding')
+  async function handleFundPayroll() {
+    if (!payroll) {
+      toast.error('No payroll loaded')
+      return
+    }
+    if (!requiredChainId) {
+      toast.error('Payroll chain not resolved yet')
       return
     }
 
-    const tokenMeta = findTokenByAddress(tokenAddress)
-    const decimals = tokenMeta?.decimals ?? 6
-
-    const totalPayments =
-      typeof payroll.total_payments === 'number'
-        ? payroll.total_payments
-        : Number(payroll.total_payments ?? 0)
-
-    // fixed reward stuff...
-    const rewardPerDispatchHuman = '0.01'
-    const rewardPerDispatchNum = 0.01
-    const rewardPoolTotalNum =
-      totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
-
-    const rewardPoolTotalHuman =
-      rewardPoolTotalNum > 0
-        ? rewardPoolTotalNum.toFixed(decimals)
-        : '0'.padEnd(decimals + 2, '0')
-
-    const rewardPoolAtomic =
-      rewardPoolTotalNum > 0
-        ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals))
-        : 0n
-
-    toast.loading('Preparing funding transactions...', { id: 'fund' })
-
-    // 1) backend builds deficit call
-    const fundRes = await api.post(
-      `/api/payrolls/payrolls/${dbId}/fund/`,
-      {
-        token_address: tokenAddress,
-      }
-    )
-    const fundCall: FundCallPayload = fundRes.data
-
-    const escrowDeficitAtomic = BigInt(fundCall.deficit_atomic)
-
-    if (escrowDeficitAtomic <= 0n) {
-      toast.success('Payroll is already fully funded!')
+    const dbId = payroll.id ?? id
+    if (!dbId) {
+      toast.error('Missing payroll id')
       return
     }
 
-    const targetChainId = fundCall.chainId
-    if (chainId !== targetChainId && switchChainAsync) {
-      toast.loading('Switching chain...', { id: 'fund' })
-      await switchChainAsync({ chainId: targetChainId })
-    }
-
-    let setRewardCall:
-      | { to: string; data: string; chainId: number }
-      | null = null
-    let fundRewardCall:
-      | { to: string; data: string; chainId: number }
-      | null = null
-
-    if (rewardPoolTotalNum > 0 && totalPayments > 0) {
-      try {
-        const resSet = await api.post(
-          `/api/payrolls/payrolls/${dbId}/set_relayer_reward/`,
-          {
-            token_address: tokenAddress,
-            reward_human: rewardPerDispatchHuman,
-          }
-        )
-        setRewardCall = resSet.data
-
-        const resReward = await api.post(
-          `/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`,
-          {
-            token_address: tokenAddress,
-            amount_human: rewardPoolTotalHuman,
-          }
-        )
-        fundRewardCall = resReward.data
-      } catch (err: any) {
-        console.error(
-          'Relayer reward setup failed, continuing with escrow only',
-          err
-        )
-        toast.error(
-          'Relayer reward setup failed, funding escrow only. Check backend set_relayer_reward/fund_relayer_reward.'
-        )
-      }
-    }
-
-    const extraRewardAtomic =
-      setRewardCall && fundRewardCall ? rewardPoolAtomic : 0n
-
-    const totalApproveAmount = escrowDeficitAtomic + extraRewardAtomic
-
-    // 3) approve
-    toast.loading('Approving USDC spend...', { id: 'fund' })
-    await approveAsync({
-      address: tokenAddress,
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [fundCall.to as `0x${string}`, totalApproveAmount],
-    })
-
-    // 4) configure reward (optional)
-    if (setRewardCall) {
-      toast.loading('Configuring relayer reward...', { id: 'fund' })
-      await sendTransactionAsync({
-        to: setRewardCall.to as `0x${string}`,
-        data: setRewardCall.data as `0x${string}`,
-      })
-    }
-
-    // 5) fund escrow
-    toast.loading(
-      `Funding payroll with ${fundCall.deficit_human} units...`,
-      { id: 'fund' }
-    )
-    const hash = await sendTransactionAsync({
-      to: fundCall.to as `0x${string}`,
-      data: fundCall.data as `0x${string}`,
-    })
-
-    // 6) fund reward pool (optional)
-    if (fundRewardCall) {
-      toast.loading('Funding relayer gas vault...', { id: 'fund' })
-      await sendTransactionAsync({
-        to: fundRewardCall.to as `0x${string}`,
-        data: fundRewardCall.data as `0x${string}`,
-      })
-    }
-
-    //  NEW: force backend to pull fresh PayrollFunded events for THIS payroll
     try {
-      await api.post(`/api/payrolls/payrolls/${dbId}/sync_funding/`)
-    } catch (e) {
-      console.error('sync_funding failed (non-fatal)', e)
+      // enforce correct chain early
+      await ensureCorrectChain(requiredChainId)
+
+      const tokenAddress = (payroll.default_token_address ||
+        funding?.summary?.[0]?.token_address) as `0x${string}`
+
+      if (!tokenAddress) {
+        toast.error('No token address available for funding')
+        return
+      }
+
+      const tokenMeta = findTokenByAddress(tokenAddress)
+      const decimals = tokenMeta?.decimals ?? 6
+
+      const totalPayments =
+        typeof payroll.total_payments === 'number'
+          ? payroll.total_payments
+          : Number(payroll.total_payments ?? 0)
+
+      const rewardPerDispatchHuman = '0.01'
+      const rewardPerDispatchNum = 0.01
+      const rewardPoolTotalNum =
+        totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
+
+      const rewardPoolTotalHuman =
+        rewardPoolTotalNum > 0
+          ? rewardPoolTotalNum.toFixed(decimals)
+          : '0'.padEnd(decimals + 2, '0')
+
+      const rewardPoolAtomic =
+        rewardPoolTotalNum > 0
+          ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals))
+          : 0n
+
+      toast.loading('Preparing funding transactions...', { id: 'fund' })
+
+      // 1) backend builds deficit call
+      const fundRes = await api.post(`/api/payrolls/payrolls/${dbId}/fund/`, {
+        token_address: tokenAddress,
+      })
+      const fundCall: FundCallPayload = fundRes.data
+
+      // respect backend chainId (Arc vs Base)
+      await ensureCorrectChain(fundCall.chainId)
+
+      const escrowDeficitAtomic = BigInt(fundCall.deficit_atomic)
+      if (escrowDeficitAtomic <= 0n) {
+        toast.success('Payroll is already fully funded!')
+        return
+      }
+
+      let setRewardCall: { to: string; data: string; chainId: number } | null =
+        null
+      let fundRewardCall: { to: string; data: string; chainId: number } | null =
+        null
+
+      if (rewardPoolTotalNum > 0 && totalPayments > 0) {
+        try {
+          const resSet = await api.post(
+            `/api/payrolls/payrolls/${dbId}/set_relayer_reward/`,
+            {
+              token_address: tokenAddress,
+              reward_human: rewardPerDispatchHuman,
+            }
+          )
+          setRewardCall = resSet.data
+
+          const resReward = await api.post(
+            `/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`,
+            {
+              token_address: tokenAddress,
+              amount_human: rewardPoolTotalHuman,
+            }
+          )
+          fundRewardCall = resReward.data
+        } catch (err: any) {
+          console.error(
+            'Relayer reward setup failed, continuing with escrow only',
+            err
+          )
+          toast.error(
+            'Relayer reward setup failed, funding escrow only. Check backend set_relayer_reward/fund_relayer_reward.'
+          )
+        }
+      }
+
+      const extraRewardAtomic =
+        setRewardCall && fundRewardCall ? rewardPoolAtomic : 0n
+
+      const totalApproveAmount = escrowDeficitAtomic + extraRewardAtomic
+
+      // 3) approve (force chainId)
+      toast.loading('Approving token spend...', { id: 'fund' })
+      await approveAsync({
+        chainId: fundCall.chainId,
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [fundCall.to as `0x${string}`, totalApproveAmount],
+      })
+
+      // 4) configure reward (optional)
+      if (setRewardCall) {
+        toast.loading('Configuring relayer reward...', { id: 'fund' })
+        await sendTransactionAsync({
+          chainId: setRewardCall.chainId,
+          to: setRewardCall.to as `0x${string}`,
+          data: setRewardCall.data as `0x${string}`,
+        })
+      }
+
+      // 5) fund escrow
+      toast.loading(`Funding payroll with ${fundCall.deficit_human} units...`, {
+        id: 'fund',
+      })
+      const hash = await sendTransactionAsync({
+        chainId: fundCall.chainId,
+        to: fundCall.to as `0x${string}`,
+        data: fundCall.data as `0x${string}`,
+      })
+
+      // 6) fund reward pool (optional)
+      if (fundRewardCall) {
+        toast.loading('Funding relayer gas vault...', { id: 'fund' })
+        await sendTransactionAsync({
+          chainId: fundRewardCall.chainId,
+          to: fundRewardCall.to as `0x${string}`,
+          data: fundRewardCall.data as `0x${string}`,
+        })
+      }
+
+      // force backend to pull fresh events for THIS payroll
+      try {
+        await api.post(`/api/payrolls/payrolls/${dbId}/sync_funding/`)
+      } catch (e) {
+        console.error('sync_funding failed (non-fatal)', e)
+      }
+
+      refetchFunding()
+      refetch()
+
+      toast.success(`Payroll funded! Tx: ${hash.slice(0, 10)}...`, { id: 'fund' })
+    } catch (err: any) {
+      console.error(err)
+      const msg =
+        err?.response?.data?.detail ||
+        err?.shortMessage ||
+        err?.message ||
+        'Failed to fund payroll'
+      toast.error(msg, { id: 'fund' })
     }
-
-    //  NEW: immediately refresh funding + header after sync
-    refetchFunding()
-    refetch()
-
-    toast.success(`Payroll funded! Tx: ${hash.slice(0, 10)}...`, {
-      id: 'fund',
-    })
-  } catch (err: any) {
-    console.error(err)
-    const msg =
-      err?.response?.data?.detail ||
-      err?.shortMessage ||
-      err?.message ||
-      'Failed to fund payroll'
-    toast.error(msg, { id: 'fund' })
   }
-}
-
 
   async function handleVerifyOnchain(paymentId: number) {
     try {
       setVerifyingId(paymentId)
 
-      const res = await api.get(
-        `/api/payrolls/payments/${paymentId}/verify_onchain/`
-      )
+      const res = await api.get(`/api/payrolls/payments/${paymentId}/verify_onchain/`)
       const data = res.data as {
         status_db: string
         onchain_is_processed: boolean | null
@@ -460,16 +509,13 @@ async function syncPayrollNow() {
       }
 
       if (data.onchain_is_processed && data.receipt_status === 1) {
-        toast.success(
-          `Verified on chain: processed on ${data.chain_name ?? 'chain'}`
-        )
+        toast.success(`Verified on chain: processed on ${data.chain_name ?? 'chain'}`)
       } else if (data.onchain_is_processed === false) {
         toast.error('On chain reports this payment as not processed yet')
       } else {
         toast.error('Could not fully verify this payment on chain')
       }
 
-      // After verifying, force a payments refresh so status updates faster
       await refetchPayments()
       await refetchFunding()
       await refetch()
@@ -490,10 +536,11 @@ async function syncPayrollNow() {
       toast.error('No payroll loaded')
       return
     }
-    if (!isConnected || !address) {
-      toast.error('Connect your wallet to finalize')
+    if (!requiredChainId) {
+      toast.error('Payroll chain not resolved yet')
       return
     }
+
     const dbId = payroll.id ?? id
     if (!dbId) {
       toast.error('Missing payroll id')
@@ -502,27 +549,23 @@ async function syncPayrollNow() {
 
     try {
       setFinalizing(true)
-      toast.loading('Preparing finalize transaction...', { id: 'finalize' })
+      await ensureCorrectChain(requiredChainId)
 
+      toast.loading('Preparing finalize transaction...', { id: 'finalize' })
       const res = await api.post(`/api/payrolls/payrolls/${dbId}/finalize/`)
       const call: { to: string; data: string; chainId: number } = res.data
 
-      if (chainId !== call.chainId && switchChainAsync) {
-        toast.loading('Switching chain...', { id: 'finalize' })
-        await switchChainAsync({ chainId: call.chainId })
-      }
+      await ensureCorrectChain(call.chainId)
 
       toast.loading('Confirm finalize in wallet...', { id: 'finalize' })
       const hash = await sendTransactionAsync({
+        chainId: call.chainId,
         to: call.to as `0x${string}`,
         data: call.data as `0x${string}`,
       })
 
-      toast.success(`Finalize submitted: ${hash.slice(0, 10)}...`, {
-        id: 'finalize',
-      })
+      toast.success(`Finalize submitted: ${hash.slice(0, 10)}...`, { id: 'finalize' })
 
-      // Immediate refresh instead of delayed timeout
       await refetch()
       await refetchPayments()
       await refetchFunding()
@@ -544,14 +587,15 @@ async function syncPayrollNow() {
       toast.error('No payroll loaded')
       return
     }
-    if (!isConnected || !address) {
-      toast.error('Connect your wallet to withdraw')
+    if (!requiredChainId) {
+      toast.error('Payroll chain not resolved yet')
       return
     }
     if (!leftoversHuman || parseFloat(leftoversHuman) <= 0) {
       toast.error('No leftovers to withdraw')
       return
     }
+
     const dbId = payroll.id ?? id
     if (!dbId) {
       toast.error('Missing payroll id')
@@ -560,6 +604,8 @@ async function syncPayrollNow() {
 
     try {
       setWithdrawing(true)
+      await ensureCorrectChain(requiredChainId)
+
       toast.loading('Preparing withdraw transaction...', { id: 'withdraw' })
 
       const res = await api.post(`/api/payrolls/payrolls/${dbId}/withdraw/`, {
@@ -568,23 +614,17 @@ async function syncPayrollNow() {
       })
 
       const call: { to: string; data: string; chainId: number } = res.data
-
-      if (chainId !== call.chainId && switchChainAsync) {
-        toast.loading('Switching chain...', { id: 'withdraw' })
-        await switchChainAsync({ chainId: call.chainId })
-      }
+      await ensureCorrectChain(call.chainId)
 
       toast.loading('Confirm withdraw in wallet...', { id: 'withdraw' })
       const hash = await sendTransactionAsync({
+        chainId: call.chainId,
         to: call.to as `0x${string}`,
         data: call.data as `0x${string}`,
       })
 
-      toast.success(`Withdraw submitted: ${hash.slice(0, 10)}...`, {
-        id: 'withdraw',
-      })
+      toast.success(`Withdraw submitted: ${hash.slice(0, 10)}...`, { id: 'withdraw' })
 
-      // Refresh right away so leftover + funding summary update fast
       await refetchFunding()
       await refetch()
       await refetchPayments()
@@ -622,15 +662,34 @@ async function syncPayrollNow() {
     )
   }
 
-  const chain = findChain()
-  const token = findTokenByAddress(payroll.default_token_address)
-  const explorerBase = getExplorerBaseUrl(chain?.chain_id)
-
   // ---------------------------------------------
   // UI
   // ---------------------------------------------
   return (
     <div className="space-y-5">
+      {/* Wrong Network Gate */}
+      {isConnected && requiredChainId && chainId && chainId !== requiredChainId && (
+        <Card className="border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-amber-200">
+                Wrong network
+              </p>
+              <p className="text-xs text-amber-200/80">
+                This payroll is on{' '}
+                <span className="font-mono">chainId {requiredChainId}</span>, but your wallet is on{' '}
+                <span className="font-mono">chainId {chainId}</span>. Switch before using this page.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="primary" onClick={handleSwitchNetworkClick}>
+                Switch network
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Header / meta */}
       <Card className="space-y-4 border border-slate-800/80 bg-slate-950/80 p-5 shadow-lg shadow-sky-500/10">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -649,9 +708,7 @@ async function syncPayrollNow() {
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <StatusPill status={payroll.status} />
-            {chain && (
-              <ChainBadge name={chain.name} chainId={chain.chain_id} />
-            )}
+            {chain && <ChainBadge name={chain.name} chainId={chain.chain_id} />}
           </div>
         </div>
 
@@ -666,17 +723,18 @@ async function syncPayrollNow() {
               <p className="text-slate-500">Unknown chain</p>
             )}
           </div>
+
           <div className="space-y-1 text-sm text-slate-200">
             <p className="font-semibold text-slate-400">Default token</p>
             {token ? (
               <p className="font-mono text-xs">
-                {token.symbol} · {token.address.slice(0, 6)}…
-                {token.address.slice(-4)}
+                {token.symbol} · {token.address.slice(0, 6)}…{token.address.slice(-4)}
               </p>
             ) : (
               <p className="text-slate-500">Unknown token</p>
             )}
           </div>
+
           <div className="space-y-1 text-sm text-slate-200">
             <p className="font-semibold text-slate-400">Totals</p>
             <p className="font-mono text-xs">
@@ -691,29 +749,37 @@ async function syncPayrollNow() {
         <div className="flex flex-wrap gap-2.5">
           {payroll.status === 'draft' && (
             <Button
-  size="sm"
-  variant="primary"
-  onClick={handleCreateOnchain}
-  loading={
-    creatingOnchain ||
-    createOnchainMutation.isPending ||
-    txStatus === 'pending'
-  }
->
-  {creatingOnchain ? 'Creating…' : 'Create on-chain'}
-</Button>
-
+              size="sm"
+              variant="primary"
+              onClick={handleCreateOnchain}
+              disabled={!canUsePageActions}
+              loading={
+                creatingOnchain ||
+                createOnchainMutation.isPending ||
+                txStatus === 'pending'
+              }
+            >
+              {creatingOnchain ? 'Creating…' : 'Create on-chain'}
+            </Button>
           )}
+
           {funding && funding.summary.length > 0 && (
             <Button
               size="sm"
               variant="secondary"
               onClick={handleFundPayroll}
+              disabled={!canUsePageActions}
             >
               Fund payroll
             </Button>
           )}
         </div>
+
+        {!canUsePageActions && isConnected && requiredChainId && (
+          <p className="text-[11px] text-slate-500">
+            Actions are locked until your wallet is on chainId {requiredChainId}.
+          </p>
+        )}
       </Card>
 
       {/* Funding */}
@@ -721,12 +787,12 @@ async function syncPayrollNow() {
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-100">Funding</h3>
         </div>
+
         {funding ? (
           <>
             {funding.summary.length === 0 ? (
               <p className="text-sm text-slate-400">
-                No funding summary yet. This will populate once events are
-                indexed.
+                No funding summary yet. This will populate once events are indexed.
               </p>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/90">
@@ -735,15 +801,9 @@ async function syncPayrollNow() {
                     <thead className="border-b border-slate-800 bg-slate-950/90 text-slate-400">
                       <tr>
                         <th className="px-3 py-2.5">Token</th>
-                        <th className="px-3 py-2.5 text-right">
-                          Required (atomic)
-                        </th>
-                        <th className="px-3 py-2.5 text-right">
-                          Funded (atomic)
-                        </th>
-                        <th className="px-3 py-2.5 text-right">
-                          Deficit (atomic)
-                        </th>
+                        <th className="px-3 py-2.5 text-right">Required (atomic)</th>
+                        <th className="px-3 py-2.5 text-right">Funded (atomic)</th>
+                        <th className="px-3 py-2.5 text-right">Deficit (atomic)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900/80">
@@ -790,9 +850,7 @@ async function syncPayrollNow() {
 
         <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-3">
           <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3.5">
-            <p className="font-semibold text-slate-400 text-xs">
-              Payroll status
-            </p>
+            <p className="font-semibold text-slate-400 text-xs">Payroll status</p>
             <p className="font-mono text-xs">{payroll.status}</p>
           </div>
 
@@ -818,6 +876,7 @@ async function syncPayrollNow() {
                   variant="secondary"
                   onClick={handleFinalizePayroll}
                   loading={finalizing}
+                  disabled={!canUsePageActions}
                 >
                   Finalize payroll
                 </Button>
@@ -828,6 +887,7 @@ async function syncPayrollNow() {
                   variant="secondary"
                   onClick={handleWithdrawLeftovers}
                   loading={withdrawing}
+                  disabled={!canUsePageActions}
                 >
                   Withdraw leftovers
                 </Button>
@@ -837,9 +897,9 @@ async function syncPayrollNow() {
         </div>
 
         <p className="text-[11px] text-slate-500">
-          Finalize when all scheduled payments are done. After finalization, you
-          can withdraw any leftover escrow (including over-funding or funds from
-          failed dispatches).
+          Finalize when all scheduled payments are done. After finalization, you can
+          withdraw any leftover escrow (including over-funding or funds from failed
+          dispatches).
         </p>
       </Card>
 
@@ -847,9 +907,7 @@ async function syncPayrollNow() {
       <Card className="space-y-3 border border-slate-800/80 bg-slate-950/80 p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-100">Payments</h3>
-          <p className="text-xs text-slate-400">
-            Total {payments?.length ?? 0} rows
-          </p>
+          <p className="text-xs text-slate-400">Total {payments?.length ?? 0} rows</p>
         </div>
 
         {payments && payments.length > 0 ? (
@@ -873,9 +931,7 @@ async function syncPayrollNow() {
                     const t = findTokenByAddress(p.token_address)
                     const shortTx =
                       p.dispatched_tx_hash &&
-                      `${p.dispatched_tx_hash.slice(0, 10)}…${p.dispatched_tx_hash.slice(
-                        -4
-                      )}`
+                      `${p.dispatched_tx_hash.slice(0, 10)}…${p.dispatched_tx_hash.slice(-4)}`
 
                     const fullTx =
                       p.dispatched_tx_hash &&
@@ -884,21 +940,15 @@ async function syncPayrollNow() {
                         : `0x${p.dispatched_tx_hash}`)
 
                     const txLink =
-                      explorerBase && fullTx
-                        ? `${explorerBase}/tx/${fullTx}`
-                        : null
+                      explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
 
                     return (
-                      <tr
-                        key={p.id}
-                        className="transition hover:bg-slate-900/60"
-                      >
+                      <tr key={p.id} className="transition hover:bg-slate-900/60">
                         <td className="px-3 py-2.5 align-middle font-mono text-xs">
                           {p.payroll_index}
                         </td>
                         <td className="px-3 py-2.5 align-middle font-mono text-xs">
-                          {p.employee_address.slice(0, 6)}…
-                          {p.employee_address.slice(-4)}
+                          {p.employee_address.slice(0, 6)}…{p.employee_address.slice(-4)}
                         </td>
                         <td className="px-3 py-2.5 align-middle">
                           {t ? t.symbol : p.token_address.slice(0, 6) + '…'}
@@ -933,9 +983,7 @@ async function syncPayrollNow() {
                             onClick={() => handleVerifyOnchain(p.id)}
                             disabled={verifyingId === p.id}
                           >
-                            {verifyingId === p.id
-                              ? 'Verifying...'
-                              : 'Verify on-chain'}
+                            {verifyingId === p.id ? 'Verifying...' : 'Verify on-chain'}
                           </Button>
                         </td>
                       </tr>
