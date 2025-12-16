@@ -1,7 +1,13 @@
 // src/pages/DashboardPage.tsx
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useAccount, useBalance, useConnect, useSwitchChain } from 'wagmi'
+import {
+  useAccount,
+  useBalance,
+  useConnect,
+  useSwitchChain,
+  useChainId,
+} from 'wagmi'
 
 import {
   Briefcase,
@@ -61,11 +67,11 @@ const TOOL_ORDER: ToolTab[] = [
 // ------------------------------
 // null means "works on any supported chain"
 const TOOL_REQUIRED_CHAIN: Record<ToolTab, number | null> = {
-  payrolls: ARC_CHAIN_ID, // PayrollManager is Arc-first in this app flow
-  gateway: null, // Gateway supports Arc ↔ Base
-  piggy: ARC_CHAIN_ID, // SavingsVault is Arc-only
-  staking: null, // coming soon
-  escrow: null, // coming soon
+  payrolls: ARC_CHAIN_ID, // Arc-only
+  gateway: null, // Arc + Base supported
+  piggy: ARC_CHAIN_ID, // Arc-only
+  staking: null, // soon
+  escrow: null, // soon
 }
 
 function chainLabel(chainId?: number) {
@@ -79,6 +85,11 @@ export function DashboardPage() {
   const [activeTool, setActiveTool] = useState<ToolTab>('payrolls')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  const handleToolChange = (tool: ToolTab) => {
+    setActiveTool(tool)
+    setMobileNavOpen(false)
+  }
+
   const {
     employers,
     activeEmployerId,
@@ -89,15 +100,19 @@ export function DashboardPage() {
     creatingEmployer,
   } = useWalletEmployerBinding()
 
-  const { address, chainId } = useAccount()
+  const { address } = useAccount()
   const isConnected = !!address
+
+  // Use wagmi chainId hook (more reliable for gating)
+  const chainId = useChainId()
 
   // Same connect behavior as Navbar (connectors[0])
   const { connectors, connect, status: connectStatus } = useConnect()
   const mainConnector = connectors[0]
 
-  // Switch chain
-  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+  // Switch chain (safe usage)
+  const { switchChain, chains, status: switchStatus, error: switchError } =
+    useSwitchChain()
 
   const requiredChainId = TOOL_REQUIRED_CHAIN[activeTool]
 
@@ -107,18 +122,15 @@ export function DashboardPage() {
     return chainId !== requiredChainId
   }, [isConnected, chainId, requiredChainId])
 
-  const handleToolChange = (tool: ToolTab) => {
-    setActiveTool(tool)
-    setMobileNavOpen(false)
-  }
+  const canSwitchToRequired = useMemo(() => {
+    if (!requiredChainId) return false
+    return (chains ?? []).some((c) => c.id === requiredChainId)
+  }, [chains, requiredChainId])
 
-  const handleSwitchToRequiredChain = async () => {
+  const handleSwitchToRequiredChain = () => {
     if (!requiredChainId) return
-    try {
-      await switchChainAsync({ chainId: requiredChainId })
-    } catch {
-      // wallet rejected / failed. UI already explains what to do.
-    }
+    if (!switchChain) return
+    switchChain({ chainId: requiredChainId })
   }
 
   // -------------------------------------
@@ -290,14 +302,7 @@ export function DashboardPage() {
                 : 'bg-[#02071c] border-transparent text-slate-400 hover:bg-slate-900/60 hover:border-slate-700/80 hover:text-slate-100',
             ].join(' ')}
           >
-            <span
-              className={[
-                'flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors',
-                activeTool === 'staking'
-                  ? 'border-[#95a7f5]/80 bg-transparent'
-                  : 'border-slate-800/80 bg-transparent group-hover:border-[#95a7f5]/60',
-              ].join(' ')}
-            >
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-800/80 bg-transparent group-hover:border-[#95a7f5]/60">
               <Coins className="h-7 w-7 text-[#95a7f5]" />
             </span>
             <div className="flex flex-col gap-0.5">
@@ -322,14 +327,7 @@ export function DashboardPage() {
                 : 'bg-[#02071c] border-transparent text-slate-400 hover:bg-slate-900/60 hover:border-slate-700/80 hover:text-slate-100',
             ].join(' ')}
           >
-            <span
-              className={[
-                'flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors',
-                activeTool === 'escrow'
-                  ? 'border-[#95a7f5]/80 bg-transparent'
-                  : 'border-slate-800/80 bg-transparent group-hover:border-[#95a7f5]/60',
-              ].join(' ')}
-            >
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-800/80 bg-transparent group-hover:border-[#95a7f5]/60">
               <ShieldCheck className="h-7 w-7 text-[#95a7f5]" />
             </span>
             <div className="flex flex-col gap-0.5">
@@ -383,14 +381,7 @@ export function DashboardPage() {
                       : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
                   ].join(' ')}
                 >
-                  <span
-                    className={[
-                      'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                      activeTool === tool
-                        ? 'border-[#95a7f5]/80'
-                        : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
-                    ].join(' ')}
-                  >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-800/80 group-hover:border-[#95a7f5]/60">
                     {tool === 'payrolls' && (
                       <Briefcase className="h-6 w-6 text-[#95a7f5]" />
                     )}
@@ -411,13 +402,6 @@ export function DashboardPage() {
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold">
                       {TOOL_LABELS[tool]}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      {tool === 'payrolls' && 'Streams, funding, dispatch'}
-                      {tool === 'gateway' && 'Cross-chain USDC treasury'}
-                      {tool === 'piggy' && 'Flex and fixed vaults'}
-                      {tool === 'staking' && 'Yield on idle funds'}
-                      {tool === 'escrow' && 'Milestone payouts'}
                     </span>
                   </div>
 
@@ -580,26 +564,42 @@ export function DashboardPage() {
                         <span className="font-semibold text-slate-200">
                           {chainLabel(requiredChainId ?? undefined)}
                         </span>{' '}
-                        to continue. Current network:{' '}
+                        to continue. Current:{' '}
                         <span className="font-semibold text-slate-200">
                           {chainLabel(chainId)}
                         </span>
                         .
                       </p>
 
+                      {!canSwitchToRequired ? (
+                        <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-300">
+                          Your wallet connector does not know this network yet.
+                          Fix: add Arc Testnet (chainId {ARC_CHAIN_ID}) to your
+                          wagmi chains config, or switch networks manually in
+                          the wallet.
+                        </div>
+                      ) : null}
+
+                      {switchError ? (
+                        <div className="rounded-xl border border-rose-900/50 bg-rose-950/20 p-4 text-sm text-rose-200">
+                          Switch error: {String(switchError.message || switchError)}
+                        </div>
+                      ) : null}
+
                       <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
                         <Button
                           type="button"
                           className="w-full sm:w-auto"
-                          loading={isSwitchingChain}
+                          loading={switchStatus === 'pending'}
                           onClick={handleSwitchToRequiredChain}
+                          disabled={!canSwitchToRequired}
                         >
                           Switch network
                         </Button>
 
                         <div className="text-xs text-slate-500">
-                          If your wallet doesn’t prompt, open the wallet and
-                          switch networks manually.
+                          If no prompt appears, open your wallet and switch
+                          networks manually.
                         </div>
                       </div>
                     </div>
@@ -611,7 +611,6 @@ export function DashboardPage() {
                    ------------------------- */}
                 {activeTool === 'payrolls' && !isWrongChain && (
                   <section className="space-y-4 sm:space-y-5">
-                    {/* Hero */}
                     <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-[#164c90] to-[#0c2b51] px-4 py-5 sm:px-6 sm:py-6 shadow-lg shadow-[#4189e1]/35">
                       <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="max-w-xl">
@@ -658,7 +657,6 @@ export function DashboardPage() {
                    ------------------------- */}
                 {activeTool === 'gateway' && (
                   <section className="space-y-5 sm:space-y-6">
-                    {/* Hero */}
                     <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-[#164c90] to-[#0c2b51] px-4 py-5 sm:px-6 sm:py-6 shadow-lg shadow-[#4189e1]/35">
                       <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="max-w-xl">
@@ -669,9 +667,6 @@ export function DashboardPage() {
                             <span className="rounded-full bg-slate-950/30 px-2 py-0.5">
                               Arc ↔ Base
                             </span>
-                            <span className="rounded-full bg-slate-950/30 px-2 py-0.5">
-                              Base ↔ Arc
-                            </span>
                           </div>
 
                           <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-[#e3eefa]">
@@ -679,8 +674,7 @@ export function DashboardPage() {
                           </h2>
                           <p className="mt-1 text-xs sm:text-sm text-[#e3eefa]/80">
                             Bridge USDC between Arc Testnet and Base Sepolia via
-                            Circle Gateway. Fund payrolls from the right chain
-                            at the right time.
+                            Circle Gateway.
                           </p>
                         </div>
 
@@ -698,19 +692,15 @@ export function DashboardPage() {
                       <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-[#0e305a]/45 blur-3xl" />
                     </Card>
 
-                    {/* Treasury + Wallet Balances */}
                     <div className="grid gap-5 lg:grid-cols-[1.3fr_1.1fr]">
                       <GatewayBalancesPanel employer={boundEmployer} />
-
                       <WalletBalancesPanel
                         arcLabel={arcUsdcLabel}
                         baseLabel={baseUsdcLabel}
                       />
                     </div>
 
-                    {/* Deposit + Bridge */}
                     <div className="grid gap-5 md:grid-cols-2">
-                      {/* Deposit */}
                       {boundEmployer && (
                         <Card className="rounded-2xl border border-slate-800 bg-[#050b26] p-4 sm:p-5">
                           <h3 className="mb-2 text-sm font-semibold text-slate-200">
@@ -720,7 +710,6 @@ export function DashboardPage() {
                         </Card>
                       )}
 
-                      {/* Bridge */}
                       <Card className="rounded-2xl border border-slate-800 bg-[#050b26] p-4 sm:p-5">
                         <h3 className="mb-2 text-sm font-semibold text-slate-200">
                           Bridge USDC between Arc &amp; Base
@@ -748,32 +737,17 @@ export function DashboardPage() {
                     <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-950 px-4 py-5 sm:px-6 sm:py-6 shadow-lg shadow-[#4189e1]/20">
                       <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="max-w-xl">
-                          <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] text-slate-100/90">
-                            <span className="rounded-full bg-slate-950/50 px-2 py-0.5 uppercase tracking-wide">
-                              Staking
-                            </span>
-                            <span className="rounded-full bg-slate-950/40 px-2 py-0.5">
-                              Coming soon
-                            </span>
-                          </div>
-
                           <h2 className="text-lg sm:text-xl font-semibold text-slate-50">
                             Put idle USDC to work
                           </h2>
                           <p className="mt-1 text-xs sm:text-sm text-slate-100/80">
-                            Delegate part of your treasury into staking
-                            strategies and validator rewards while keeping clear
-                            visibility from the same dashboard.
+                            Coming soon.
                           </p>
                         </div>
-
                         <span className="mt-2 rounded-full bg-slate-950/70 px-3 py-1 text-[10px] sm:text-xs uppercase tracking-wide text-slate-200">
                           In development
                         </span>
                       </div>
-
-                      <div className="pointer-events-none absolute -right-20 -top-16 h-40 w-40 rounded-full bg-[#4189e1]/22 blur-3xl" />
-                      <div className="pointer-events-none absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-slate-200/10 blur-3xl" />
                     </Card>
                   </section>
                 )}
@@ -786,32 +760,17 @@ export function DashboardPage() {
                     <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-950 px-4 py-5 sm:px-6 sm:py-6 shadow-lg shadow-[#4189e1]/20">
                       <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="max-w-xl">
-                          <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] text-slate-100/90">
-                            <span className="rounded-full bg-slate-950/50 px-2 py-0.5 uppercase tracking-wide">
-                              Escrow
-                            </span>
-                            <span className="rounded-full bg-slate-950/40 px-2 py-0.5">
-                              Coming soon
-                            </span>
-                          </div>
-
                           <h2 className="text-lg sm:text-xl font-semibold text-slate-50">
                             Milestone-based USDC payouts
                           </h2>
                           <p className="mt-1 text-xs sm:text-sm text-slate-100/80">
-                            Lock funds for grants, vendor deals or bounties and
-                            release on deliverables instead of paying everything
-                            upfront.
+                            Coming soon.
                           </p>
                         </div>
-
                         <span className="mt-2 rounded-full bg-slate-950/70 px-3 py-1 text-[10px] sm:text-xs uppercase tracking-wide text-slate-200">
                           In development
                         </span>
                       </div>
-
-                      <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-[#4189e1]/20 blur-3xl" />
-                      <div className="pointer-events-none absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-slate-200/12 blur-3xl" />
                     </Card>
                   </section>
                 )}
