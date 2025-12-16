@@ -1,7 +1,7 @@
 // src/pages/DashboardPage.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useAccount, useBalance, useConnect } from 'wagmi'
+import { useAccount, useBalance, useConnect, useSwitchChain } from 'wagmi'
 
 import {
   Briefcase,
@@ -56,14 +56,28 @@ const TOOL_ORDER: ToolTab[] = [
   'escrow',
 ]
 
+// ------------------------------
+// Network requirements per tool
+// ------------------------------
+// null means "works on any supported chain"
+const TOOL_REQUIRED_CHAIN: Record<ToolTab, number | null> = {
+  payrolls: ARC_CHAIN_ID, // PayrollManager is Arc-first in this app flow
+  gateway: null, // Gateway supports Arc ↔ Base
+  piggy: ARC_CHAIN_ID, // SavingsVault is Arc-only
+  staking: null, // coming soon
+  escrow: null, // coming soon
+}
+
+function chainLabel(chainId?: number) {
+  if (!chainId) return 'Unknown network'
+  if (chainId === ARC_CHAIN_ID) return 'Arc Testnet'
+  if (chainId === BASE_CHAIN_ID) return 'Base Sepolia'
+  return `Chain ${chainId}`
+}
+
 export function DashboardPage() {
   const [activeTool, setActiveTool] = useState<ToolTab>('payrolls')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-
-  const handleToolChange = (tool: ToolTab) => {
-    setActiveTool(tool)
-    setMobileNavOpen(false)
-  }
 
   const {
     employers,
@@ -75,12 +89,37 @@ export function DashboardPage() {
     creatingEmployer,
   } = useWalletEmployerBinding()
 
-  const { address } = useAccount()
+  const { address, chainId } = useAccount()
   const isConnected = !!address
 
   // Same connect behavior as Navbar (connectors[0])
   const { connectors, connect, status: connectStatus } = useConnect()
   const mainConnector = connectors[0]
+
+  // Switch chain
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+
+  const requiredChainId = TOOL_REQUIRED_CHAIN[activeTool]
+
+  const isWrongChain = useMemo(() => {
+    if (!isConnected) return false
+    if (requiredChainId == null) return false
+    return chainId !== requiredChainId
+  }, [isConnected, chainId, requiredChainId])
+
+  const handleToolChange = (tool: ToolTab) => {
+    setActiveTool(tool)
+    setMobileNavOpen(false)
+  }
+
+  const handleSwitchToRequiredChain = async () => {
+    if (!requiredChainId) return
+    try {
+      await switchChainAsync({ chainId: requiredChainId })
+    } catch {
+      // wallet rejected / failed. UI already explains what to do.
+    }
+  }
 
   // -------------------------------------
   // Wallet balances
@@ -332,151 +371,63 @@ export function DashboardPage() {
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto pb-4">
-              <button
-                type="button"
-                onClick={() => handleToolChange('payrolls')}
-                className={[
-                  'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
-                  activeTool === 'payrolls'
-                    ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
-                    : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
-                ].join(' ')}
-              >
-                <span
+              {TOOL_ORDER.map((tool) => (
+                <button
+                  key={tool}
+                  type="button"
+                  onClick={() => handleToolChange(tool)}
                   className={[
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                    activeTool === 'payrolls'
-                      ? 'border-[#95a7f5]/80'
-                      : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
+                    'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
+                    activeTool === tool
+                      ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
+                      : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
                   ].join(' ')}
                 >
-                  <Briefcase className="h-6 w-6 text-[#95a7f5]" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Payrolls</span>
-                  <span className="text-[11px] text-slate-500">
-                    Streams, funding, dispatch
+                  <span
+                    className={[
+                      'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
+                      activeTool === tool
+                        ? 'border-[#95a7f5]/80'
+                        : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
+                    ].join(' ')}
+                  >
+                    {tool === 'payrolls' && (
+                      <Briefcase className="h-6 w-6 text-[#95a7f5]" />
+                    )}
+                    {tool === 'gateway' && (
+                      <ArrowLeftRight className="h-6 w-6 text-[#95a7f5]" />
+                    )}
+                    {tool === 'piggy' && (
+                      <PiggyBank className="h-6 w-6 text-[#95a7f5]" />
+                    )}
+                    {tool === 'staking' && (
+                      <Coins className="h-6 w-6 text-[#95a7f5]" />
+                    )}
+                    {tool === 'escrow' && (
+                      <ShieldCheck className="h-6 w-6 text-[#95a7f5]" />
+                    )}
                   </span>
-                </div>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => handleToolChange('gateway')}
-                className={[
-                  'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
-                  activeTool === 'gateway'
-                    ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
-                    : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                    activeTool === 'gateway'
-                      ? 'border-[#95a7f5]/80'
-                      : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
-                  ].join(' ')}
-                >
-                  <ArrowLeftRight className="h-6 w-6 text-[#95a7f5]" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Gateway bridge</span>
-                  <span className="text-[11px] text-slate-500">
-                    Cross-chain USDC treasury
-                  </span>
-                </div>
-              </button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">
+                      {TOOL_LABELS[tool]}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {tool === 'payrolls' && 'Streams, funding, dispatch'}
+                      {tool === 'gateway' && 'Cross-chain USDC treasury'}
+                      {tool === 'piggy' && 'Flex and fixed vaults'}
+                      {tool === 'staking' && 'Yield on idle funds'}
+                      {tool === 'escrow' && 'Milestone payouts'}
+                    </span>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => handleToolChange('piggy')}
-                className={[
-                  'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
-                  activeTool === 'piggy'
-                    ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
-                    : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                    activeTool === 'piggy'
-                      ? 'border-[#95a7f5]/80'
-                      : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
-                  ].join(' ')}
-                >
-                  <PiggyBank className="h-6 w-6 text-[#95a7f5]" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Piggyvest savings</span>
-                  <span className="text-[11px] text-slate-500">
-                    Flex and fixed vaults
-                  </span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleToolChange('staking')}
-                className={[
-                  'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
-                  activeTool === 'staking'
-                    ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
-                    : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                    activeTool === 'staking'
-                      ? 'border-[#95a7f5]/80'
-                      : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
-                  ].join(' ')}
-                >
-                  <Coins className="h-6 w-6 text-[#95a7f5]" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Staking</span>
-                  <span className="text-[11px] text-slate-500">
-                    Yield on idle funds
-                  </span>
-                </div>
-                <span className="ml-auto rounded-full bg-slate-900 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-400">
-                  Soon
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleToolChange('escrow')}
-                className={[
-                  'group flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-left text-[14px] transition-colors border',
-                  activeTool === 'escrow'
-                    ? 'bg-slate-900 border-[#95a7f5]/30 text-slate-50'
-                    : 'bg-[#02071c] border-slate-800/80 text-slate-400 hover:bg-slate-900/60 hover:text-slate-100',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
-                    activeTool === 'escrow'
-                      ? 'border-[#95a7f5]/80'
-                      : 'border-slate-800/80 group-hover:border-[#95a7f5]/60',
-                  ].join(' ')}
-                >
-                  <ShieldCheck className="h-6 w-6 text-[#95a7f5]" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Escrow</span>
-                  <span className="text-[11px] text-slate-500">
-                    Milestone payouts
-                  </span>
-                </div>
-                <span className="ml-auto rounded-full bg-slate-900 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-400">
-                  Soon
-                </span>
-              </button>
+                  {(tool === 'staking' || tool === 'escrow') && (
+                    <span className="ml-auto rounded-full bg-slate-900 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-400">
+                      Soon
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             <div className="border-t border-slate-900 pt-3 text-[10px] text-slate-500">
@@ -609,10 +560,56 @@ export function DashboardPage() {
               </Card>
             ) : (
               <>
+                {/* -------------------------------------
+                   NETWORK GATE (per tool)
+                   ------------------------------------- */}
+                {isWrongChain && (
+                  <Card className="rounded-2xl border border-slate-800 bg-[#050b26] p-5 sm:p-6">
+                    <div className="flex flex-col gap-3">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 text-[11px] uppercase tracking-wide text-slate-300 w-fit">
+                        <Wallet className="h-4 w-4 text-[#95a7f5]" />
+                        Network required
+                      </div>
+
+                      <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-50">
+                        Wrong network for {TOOL_LABELS[activeTool]}
+                      </h2>
+
+                      <p className="text-sm text-slate-400 max-w-2xl">
+                        Switch to{' '}
+                        <span className="font-semibold text-slate-200">
+                          {chainLabel(requiredChainId ?? undefined)}
+                        </span>{' '}
+                        to continue. Current network:{' '}
+                        <span className="font-semibold text-slate-200">
+                          {chainLabel(chainId)}
+                        </span>
+                        .
+                      </p>
+
+                      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <Button
+                          type="button"
+                          className="w-full sm:w-auto"
+                          loading={isSwitchingChain}
+                          onClick={handleSwitchToRequiredChain}
+                        >
+                          Switch network
+                        </Button>
+
+                        <div className="text-xs text-slate-500">
+                          If your wallet doesn’t prompt, open the wallet and
+                          switch networks manually.
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
                 {/* -------------------------
                     PAYROLLS
                    ------------------------- */}
-                {activeTool === 'payrolls' && (
+                {activeTool === 'payrolls' && !isWrongChain && (
                   <section className="space-y-4 sm:space-y-5">
                     {/* Hero */}
                     <Card className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-[#164c90] to-[#0c2b51] px-4 py-5 sm:px-6 sm:py-6 shadow-lg shadow-[#4189e1]/35">
@@ -737,7 +734,7 @@ export function DashboardPage() {
                 {/* -------------------------
                     SAVINGS
                    ------------------------- */}
-                {activeTool === 'piggy' && (
+                {activeTool === 'piggy' && !isWrongChain && (
                   <section className="space-y-4 sm:space-y-5">
                     <SavingsPanel />
                   </section>
