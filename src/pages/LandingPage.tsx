@@ -352,12 +352,14 @@ export function LandingPage() {
   <span className="soon-badge">Soon</span>
 </button>
                 <a
-                  href="#"
-                  className="flex items-center gap-1.5 transition-colors hover:text-ink-primary"
-                >
-                  <IconBrandX className="h-4 w-4" />
-                  <span className="hidden sm:inline">Twitter</span>
-                </a>
+  href="https://x.com/arcflowstream"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex items-center gap-1.5 transition-colors hover:text-ink-primary"
+>
+  <IconBrandX className="h-4 w-4" />
+  <span className="hidden sm:inline">Twitter</span>
+</a>
               </div>
             </div>
           </div>
