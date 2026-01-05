@@ -200,60 +200,81 @@ export function PayrollDetail() {
     // fallback (shouldn’t happen in your app)
     return { publicClient: arcPublicClient, walletClient: arcWalletClient }
   }
+async function waitForWalletClient(
+  getClient: () => any,
+  timeoutMs = 3000,
+  intervalMs = 100
+) {
+  const start = Date.now()
+
+  while (Date.now() - start < timeoutMs) {
+    const client = getClient()
+    if (client) return client
+    await wait(intervalMs)
+  }
+
+  return null
+}
 
   /**
    * ✅ THE PERMANENT FIX:
    * send raw calldata calls via walletClient with explicit gas + gasPrice.
    * This works on mobile wallets reliably.
    */
-  async function sendRawCall(call: RawCall, toastId: string) {
-    if (!isConnected || !address) {
-      toast.error('Connect your wallet first', { id: toastId })
-      throw new Error('Wallet not connected')
-    }
-
-    // hard lock: prevents double requests (mobile tap + re-render)
-    if (txLock) return
-    setTxLock(true)
-
-    try {
-      if (chainId !== call.chainId && switchChainAsync) {
-        toast.loading('Switching chain.', { id: toastId })
-        await switchChainAsync({ chainId: call.chainId })
-        // mobile needs a moment to actually settle
-        await wait(400)
-      }
-
-      const { publicClient, walletClient } = getClients(call.chainId)
-      if (!publicClient || !walletClient) {
-        throw new Error('Wallet client / public client not ready. Reconnect wallet.')
-      }
-
-      // estimate gas ourselves (mobile wallets often fail here)
-      const gas = await publicClient.estimateGas({
-        account: address,
-        to: call.to as `0x${string}`,
-        data: call.data as `0x${string}`,
-      })
-
-      // force legacy gas pricing (mobile-safe across these testnets)
-      const gasPrice = await publicClient.getGasPrice()
-
-      toast.loading('Confirm transaction in wallet.', { id: toastId })
-
-      const hash = await walletClient.sendTransaction({
-        account: address,
-        to: call.to as `0x${string}`,
-        data: call.data as `0x${string}`,
-        gas,
-        gasPrice,
-      })
-
-      return hash
-    } finally {
-      setTxLock(false)
-    }
+ async function sendRawCall(call: RawCall, toastId: string) {
+  if (!isConnected || !address) {
+    toast.error('Connect your wallet first', { id: toastId })
+    throw new Error('Wallet not connected')
   }
+
+  if (txLock) return
+  setTxLock(true)
+
+  try {
+    // 1️⃣ Switch chain if needed
+    if (chainId !== call.chainId && switchChainAsync) {
+      toast.loading('Switching chain…', { id: toastId })
+      await switchChainAsync({ chainId: call.chainId })
+    }
+
+    // 2️⃣ Wait for wallet client to be READY (THIS IS THE FIX)
+    const walletClient = await waitForWalletClient(() => {
+      const c = getClients(call.chainId)
+      return c.walletClient
+    })
+
+    const publicClient = getClients(call.chainId).publicClient
+
+    if (!walletClient || !publicClient) {
+      throw new Error('Wallet not ready. Please reconnect wallet.')
+    }
+
+    // 3️⃣ Estimate gas
+    const gas = await publicClient.estimateGas({
+      account: address,
+      to: call.to as `0x${string}`,
+      data: call.data as `0x${string}`,
+    })
+
+    const gasPrice = await publicClient.getGasPrice()
+
+    toast.loading('Confirm transaction in wallet', { id: toastId })
+
+    // 4️⃣ Send tx
+    const hash = await walletClient.sendTransaction({
+      account: address,
+      to: call.to as `0x${string}`,
+      data: call.data as `0x${string}`,
+      gas,
+      gasPrice,
+    })
+
+    return hash
+  } finally {
+    setTxLock(false)
+  }
+}
+
 
   // ---------------------------------------------
   // Leftover funds polling

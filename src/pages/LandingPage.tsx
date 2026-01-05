@@ -30,7 +30,8 @@ export function LandingPage() {
 
         {/* NAVBAR */}
         <header className="relative z-20 border-b border-subtle bg-[var(--nav-bg)]">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 md:py-4 lg:px-8">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4 md:py-5 lg:px-0">
+
             {/* LOGO */}
             <div className="flex items-center gap-2">
               <img
@@ -43,11 +44,20 @@ export function LandingPage() {
 
             {/* ACTIONS */}
             <Link to="/dashboard" className="shrink-0">
-              <Button
-                variant="primary"
-                size="sm"
-                className="rounded-full px-4 py-2 text-[11px] xs:px-5 xs:text-[12px] md:px-6 md:py-2.5 md:text-[13px]"
-              >
+   <Button
+  variant="primary"
+  size="sm"
+  className="
+    rounded-full
+    bg-[color:var(--brand-action)]
+    px-4 py-2
+    text-[12px] font-medium
+    text-white
+    transition-colors
+    hover:bg-[color:var(--brand-action-hover)]
+    focus:outline-none
+  "
+>
                 Launch app
               </Button>
             </Link>
@@ -59,24 +69,27 @@ export function LandingPage() {
           <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
             {/* HERO */}
             <section className="flex flex-1 flex-col items-center justify-center text-center">
-              <div className="max-w-3xl space-y-6 sm:space-y-7 md:space-y-8">
-                <h1 className="font-heading text-[1.9rem] font-semibold leading-tight tracking-tight text-ink-primary xs:text-[2.1rem] sm:text-[2.4rem] md:text-[2.9rem] lg:text-[3.2rem]">
-                  <span className="text-[color:var(--brand-200)]">Seamless</span>{' '}
-                  <span>On-Chain Finance</span>
-                  <br className="hidden sm:block" />
-                  <span className="hidden sm:inline">Tools to </span>
-                  <span className="inline sm:hidden">Tools to&nbsp;</span>
-                  <span className="text-[color:var(--brand-200)]">
-                    Earn, Grow,&nbsp;&amp; Save
-                  </span>
-                </h1>
-
-                {/* POWERED BY ARC line */}
+              {/* POWERED BY ARC line */}
                 <div className="flex items-center justify-center gap-3 text-[10px] xs:text-[11px] tracking-[0.22em] uppercase text-ink-soft">
                   <span className="hidden h-px w-8 bg-[rgba(148,163,184,0.5)] sm:block" />
                   <span>Powered by Arc</span>
                   <span className="hidden h-px w-8 bg-[rgba(148,163,184,0.5)] sm:block" />
                 </div>
+              <div className="max-w-3xl space-y-6 sm:space-y-7 md:space-y-8">
+                <h1 className="font-heading text-[1.9rem] font-semibold leading-tight tracking-tight text-ink-primary xs:text-[2.1rem] sm:text-[2.4rem] md:text-[2.9rem] lg:text-[3.2rem]">
+                  <span className="text-[color:var(--brand-highlight)]">
+                    Seamless
+                  </span>{' '}
+                  <span>On-Chain Finance</span>
+                  <br className="hidden sm:block" />
+                  <span className="hidden sm:inline">Tools to </span>
+                  <span className="inline sm:hidden">Tools to&nbsp;</span>
+                  <span className="text-[color:var(--brand-highlight)]">
+                    Earn, Grow,&nbsp;&amp; Save
+                  </span>
+                </h1>
+
+                
 
                 <p className="mx-auto max-w-2xl text-[13px] leading-relaxed text-ink-soft sm:text-sm md:text-[15px]">
                   Automate USDC and EURC payrolls, bridge treasury between Arc and
@@ -91,10 +104,22 @@ export function LandingPage() {
                     className="w-full xs:w-auto xs:flex-1 sm:flex-none"
                   >
                     <Button
-                      variant="primary"
-                      size="md"
-                      className="w-full rounded-full px-6 py-2.5 text-[13px]"
-                    >
+  variant="primary"
+  size="md"
+  className="
+    w-full
+    rounded-full
+    bg-[color:var(--brand-action)]
+    px-6 py-2.5
+    text-[13px] font-medium
+    text-white
+    transition-colors
+    hover:bg-[color:var(--brand-action-hover)]
+    focus:outline-none
+    focus:ring-2 focus:ring-[color:var(--brand-focus)]
+    focus:ring-offset-2 focus:ring-offset-[color:var(--bg-body)]
+  "
+>
                       Launch app
                     </Button>
                   </Link>
@@ -104,10 +129,23 @@ export function LandingPage() {
                     className="w-full xs:w-auto xs:flex-1 sm:flex-none"
                   >
                     <Button
-                      variant="secondary"
-                      size="md"
-                      className="w-full rounded-full px-6 py-2.5 text-[13px]"
-                    >
+  variant="secondary"
+  size="md"
+  className="
+    w-full
+    rounded-full
+    bg-transparent
+    px-6 py-2.5
+    text-[13px] font-medium
+    text-[color:var(--brand-highlight)]
+    ring-1 ring-[rgba(146,187,238,0.35)]
+    transition-colors
+    hover:bg-[rgba(146,187,238,0.08)]
+    focus:outline-none
+    focus:ring-2 focus:ring-[color:var(--brand-focus)]
+    focus:ring-offset-2 focus:ring-offset-[color:var(--bg-body)]
+  "
+>
                       Explore core tools
                     </Button>
                   </a>
@@ -132,10 +170,10 @@ export function LandingPage() {
 
                 <div className="grid gap-6 text-[13px] sm:gap-7 sm:text-sm md:grid-cols-2 lg:grid-cols-3">
                   {/* Payrolls */}
-                  <div className="noise-surface rounded-2xl border border-subtle bg-surface-sunken p-5 sm:p-6 transition-colors hover:bg-[rgba(5,13,25,0.96)]">
+                 <div className="noise-surface card-payrolls rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)]">
                     <div className="mb-3 flex items-center gap-3 sm:mb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-500)]/14 ring-1 ring-[color:var(--brand-400)]/55 sm:h-11 sm:w-11">
-                        <IconBriefcase className="h-4 w-4 text-[color:var(--brand-50)] sm:h-5 sm:w-5" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
+                        <IconBriefcase className="h-4 w-4 text-[color:var(--brand-accent)] sm:h-5 sm:w-5" />
                       </div>
                       <h3 className="text-sm font-semibold text-ink-primary">
                         Payrolls
@@ -147,74 +185,78 @@ export function LandingPage() {
                     </p>
                   </div>
 
-                  {/* Gateway bridge */}
-                  <div className="noise-surface rounded-2xl border border-subtle bg-surface-sunken p-5 sm:p-6 transition-colors hover:bg-[rgba(5,13,25,0.96)]">
-                    <div className="mb-3 flex items-center gap-3 sm:mb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-500)]/14 ring-1 ring-[color:var(--brand-400)]/55 sm:h-11 sm:w-11">
-                        <IconArrowsExchange className="h-4 w-4 text-[color:var(--brand-50)] sm:h-5 sm:w-5" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-ink-primary">
-                        Gateway bridge
-                      </h3>
-                    </div>
-                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
-                      Bridge USDC between Arc and Base with Circle CCTP and keep
-                      your treasury view unified inside Arcflow.
-                    </p>
-                  </div>
+                {/* Gateway bridge */}
+<div className="noise-surface card-bridge rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)]">
+  <div className="mb-3 flex items-center gap-3 sm:mb-4">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
+      <IconArrowsExchange className="h-4 w-4 text-[color:var(--brand-accent)] sm:h-5 sm:w-5" />
+    </div>
+    <h3 className="text-sm font-semibold text-ink-primary">
+      Gateway bridge
+    </h3>
+  </div>
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
+    Bridge USDC between Arc and Base with Circle CCTP and keep
+    your treasury view unified inside Arcflow.
+  </p>
+</div>
 
                   {/* Savings */}
-                  <div className="noise-surface rounded-2xl border border-subtle bg-surface-sunken p-5 sm:p-6 transition-colors hover:bg-[rgba(5,13,25,0.96)]">
-                    <div className="mb-3 flex items-center gap-3 sm:mb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-500)]/14 ring-1 ring-[color:var(--brand-400)]/55 sm:h-11 sm:w-11">
-                        <IconPigMoney className="h-4 w-4 text-[color:var(--brand-50)] sm:h-5 sm:w-5" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-ink-primary">
-                        Piggyvest savings
-                      </h3>
-                    </div>
-                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
-                      Flexible and fixed vaults for runway and buffers, still
-                      close enough to feed upcoming payrolls in a click.
-                    </p>
-                  </div>
+<div className="noise-surface card-savings rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)]">
+  <div className="mb-3 flex items-center gap-3 sm:mb-4">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
+      <IconPigMoney className="h-4 w-4 text-[color:var(--brand-accent)] sm:h-5 sm:w-5" />
+    </div>
+    <h3 className="text-sm font-semibold text-ink-primary">
+      Piggyvest savings
+    </h3>
+  </div>
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
+    Flexible and fixed vaults for runway and buffers, still
+    close enough to feed upcoming payrolls in a click.
+  </p>
+</div>
 
-                  {/* ✅ Escrow (before staking, no "Soon") */}
-                  <div className="noise-surface rounded-2xl border border-subtle bg-surface-sunken p-5 sm:p-6 transition-colors hover:bg-[rgba(5,13,25,0.96)] md:col-span-2 lg:col-span-3">
-                    <div className="mb-3 flex items-center gap-3 sm:mb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-500)]/14 ring-1 ring-[color:var(--brand-400)]/55 sm:h-11 sm:w-11">
-                        <IconShieldCheck className="h-4 w-4 text-[color:var(--brand-50)] sm:h-5 sm:w-5" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-ink-primary">
-                        Escrow
-                      </h3>
-                    </div>
-                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] sm:max-w-xl md:max-w-2xl">
-                      Milestone-based payouts for grants, vendors and bounties, so
-                      you only release funds as work ships while keeping payroll
-                      rails untouched.
-                    </p>
-                  </div>
+          {/* Escrow */}
+<div className="noise-surface card-escrow rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)] md:col-span-2 lg:col-span-3">
+  <div className="mb-3 flex items-center gap-3 sm:mb-4">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
+      <IconShieldCheck className="h-4 w-4 text-[color:var(--brand-accent)] sm:h-5 sm:w-5" />
+    </div>
+    <h3 className="text-sm font-semibold text-ink-primary">
+      Escrow
+    </h3>
+  </div>
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] sm:max-w-xl md:max-w-2xl">
+    Milestone-based payouts for grants, vendors and bounties, so
+    you only release funds as work ships while keeping payroll
+    rails untouched.
+  </p>
+</div>
 
-                  {/* Staking (soon) – stretched on md+ */}
-                  <div className="noise-surface rounded-2xl border border-subtle bg-surface-sunken p-5 sm:p-6 transition-colors hover:bg-[rgba(5,13,25,0.96)] md:col-span-2 lg:col-span-3">
-                    <div className="mb-3 flex items-center gap-3 sm:mb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-500)]/14 ring-1 ring-[color:var(--brand-400)]/55 sm:h-11 sm:w-11">
-                        <IconCoins className="h-4 w-4 text-[color:var(--brand-50)] sm:h-5 sm:w-5" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-ink-primary">
-                        Staking
-                        <span className="ml-2 rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] uppercase text-ink-soft">
-                          Soon
-                        </span>
-                      </h3>
-                    </div>
-                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] sm:max-w-xl md:max-w-2xl">
-                      Put a slice of idle treasury to work in curated strategies,
-                      with clear separation from payroll funds and full treasury
-                      visibility.
-                    </p>
-                  </div>
+{/* Staking */}
+<div className="relative noise-surface card-staking rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)] md:col-span-2 lg:col-span-3">
+
+  {/* Soon badge */}
+  <span className="absolute right-4 top-4 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase text-white backdrop-blur-sm">
+    Soon
+  </span>
+
+  <div className="mb-3 flex items-center gap-3 sm:mb-4">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
+      <IconCoins className="h-4 w-4 text-[color:var(--brand-accent)] sm:h-5 sm:w-5" />
+    </div>
+    <h3 className="text-sm font-semibold text-ink-primary">
+      Staking
+    </h3>
+  </div>
+
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] sm:max-w-xl md:max-w-2xl">
+    Put a slice of idle treasury to work in curated strategies,
+    with clear separation from payroll funds and full treasury
+    visibility.
+  </p>
+</div>
                 </div>
               </Card>
             </section>
@@ -288,20 +330,27 @@ export function LandingPage() {
               </span>
 
               <div className="flex items-center gap-4 sm:gap-5">
-                <a
-                  href="#"
-                  className="flex items-center gap-1.5 transition-colors hover:text-ink-primary"
-                >
-                  <IconBrandGithub className="h-4 w-4" />
-                  <span className="hidden sm:inline">GitHub</span>
-                </a>
-                <a
-                  href="#"
-                  className="flex items-center gap-1.5 transition-colors hover:text-ink-primary"
-                >
-                  <IconBrandDiscord className="h-4 w-4" />
-                  <span className="hidden sm:inline">Discord</span>
-                </a>
+               {/* GitHub — Soon */}
+<button
+  type="button"
+  className="soon-wrapper flex items-center gap-1.5 text-ink-soft"
+  aria-label="GitHub coming soon"
+>
+  <IconBrandGithub className="h-4 w-4" />
+  <span className="hidden sm:inline">GitHub</span>
+  <span className="soon-badge">Soon</span>
+</button>
+
+{/* Discord — Soon */}
+<button
+  type="button"
+  className="soon-wrapper flex items-center gap-1.5 text-ink-soft"
+  aria-label="Discord coming soon"
+>
+  <IconBrandDiscord className="h-4 w-4" />
+  <span className="hidden sm:inline">Discord</span>
+  <span className="soon-badge">Soon</span>
+</button>
                 <a
                   href="#"
                   className="flex items-center gap-1.5 transition-colors hover:text-ink-primary"

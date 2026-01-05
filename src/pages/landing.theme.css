@@ -2,35 +2,75 @@
 
 /* Scope EVERYTHING to the landing page wrapper */
 .landing-theme {
-  /* Brand scale from your palette */
+  /* ==================================================
+     BRAND SCALE (FROM YOUR 50-STEP MONOCHROME)
+     ================================================== */
   --brand-50:  #e3eefa;
+  --brand-100: #dae8f9;
   --brand-200: #92bbee;
+  --brand-300: #6da5e9;
   --brand-400: #4189e1;
   --brand-500: #1a5bab;
   --brand-600: #164c90;
   --brand-700: #0e305a;
   --brand-800: #0c2b51;
+
+  /* ==================================================
+     SEMANTIC BRAND ROLES
+     ================================================== */
+  --brand-action:        var(--brand-500);
+  --brand-action-hover:  var(--brand-400);
+  --brand-accent:        var(--brand-400);
+  --brand-highlight:     var(--brand-200);
+  --brand-focus:         rgba(65, 137, 225, 0.55);
+
   --nav-bg: #02071c;
 
-  /* Surfaces (synced to dashboard theme) */
+  /* ==================================================
+     SURFACE HIERARCHY (CORRECT DARK UI STACK)
+     ================================================== */
+
+  /* Page background (deepest) */
   --bg-body:      #02071c;
-  --bg-elevated:  #050b26;
-  --bg-sunken:    #010413;
 
-  --border-subtle: #0b1224;
-  --border-strong: #1e293b;
+  /* Sections / wrappers */
+  --bg-elevated:  #050f2e;
 
-  /* Text */
-  --text-primary: #f9fbff;
-  --text-muted:   #9ca9c9;
-  --text-soft:    #7b88a8;
+  /* Default card surface */
+  --bg-sunken:    #07143a;
 
-  /* States / effects */
-  --focus-ring:   rgba(65, 137, 225, 0.7);
+  /* ==================================================
+     CARD-SPECIFIC MONOCHROME SHADES
+     (ALL FROM YOUR PALETTE RANGE)
+     ================================================== */
+
+  --card-payrolls: #07143a; /* darkest – foundation */
+  --card-bridge:   #0a1f4a;
+  --card-savings:  #0e2a5a;
+  --card-escrow:   #113e75;
+  --card-staking:  #144887; /* lightest – growth */
+
+  /* ==================================================
+     BORDERS
+     ================================================== */
+  --border-subtle: rgba(146, 187, 238, 0.08);
+  --border-strong: rgba(146, 187, 238, 0.16);
+
+  /* ==================================================
+     TEXT
+     ================================================== */
+  --text-primary: #f5f8ff;
+  --text-muted:   #a3b1d6;
+  --text-soft:    #7f8db3;
+
+  /* ==================================================
+     STATES / EFFECTS
+     ================================================== */
+  --focus-ring:   var(--brand-focus);
   --overlay-soft: rgba(6, 15, 30, 0.8);
 
   /* No shadow boxing */
-  --shadow-soft:  none;
+  --shadow-soft: none;
 
   /* Radius */
   --radius-lg: 1rem;
@@ -41,20 +81,27 @@
   --font-body:    "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Landing-only base feel */
+/* ==================================================
+   LANDING BASE
+   ================================================== */
 .landing-theme {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   margin: 0;
-  background: radial-gradient(circle at top, var(--brand-800) 0, var(--bg-body) 52%) fixed;
+  background: radial-gradient(
+    circle at top,
+    var(--brand-800) 0,
+    var(--bg-body) 52%
+  ) fixed;
+
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 14px;
   min-height: 100vh;
 }
 
-/* Headings / hero titles use heading font from tokens */
+/* Headings */
 .landing-theme h1,
 .landing-theme h2,
 .landing-theme h3,
@@ -62,7 +109,7 @@
   font-family: var(--font-heading);
 }
 
-/* Small structural helpers */
+/* Structural helpers */
 .landing-theme .app-shell {
   min-height: 100vh;
   display: flex;
@@ -71,39 +118,47 @@
 }
 
 .landing-theme .container-page {
-  max-width: 72rem; /* max-w-6xl */
+  max-width: 72rem;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
-  padding-top: 1.5rem;
-  padding-bottom: 1.5rem;
+  padding: 1.5rem 1rem;
 }
 
-/* --------- Utility classes tied to tokens --------- */
+/* ==================================================
+   UTILITIES
+   ================================================== */
 
 /* Fonts */
 .landing-theme .font-heading { font-family: var(--font-heading); }
 .landing-theme .font-body { font-family: var(--font-body); }
 
-/* Text colors */
+/* Text */
 .landing-theme .text-ink-primary { color: var(--text-primary); }
 .landing-theme .text-ink-muted { color: var(--text-muted); }
 .landing-theme .text-ink-soft { color: var(--text-soft); }
 
-/* Background surfaces */
+/* Surfaces */
 .landing-theme .bg-surface-body { background-color: var(--bg-body); }
 .landing-theme .bg-surface-elevated { background-color: var(--bg-elevated); }
 .landing-theme .bg-surface-sunken { background-color: var(--bg-sunken); }
+
+/* Card shade helpers (OPTIONAL USAGE) */
+.landing-theme .card-payrolls { background-color: var(--card-payrolls); }
+.landing-theme .card-bridge { background-color: var(--card-bridge); }
+.landing-theme .card-savings { background-color: var(--card-savings); }
+.landing-theme .card-escrow { background-color: var(--card-escrow); }
+.landing-theme .card-staking { background-color: var(--card-staking); }
 
 /* Borders */
 .landing-theme .border-subtle { border-color: var(--border-subtle); }
 .landing-theme .border-strong { border-color: var(--border-strong); }
 
-/* Shadows – neutralised */
+/* Shadows */
 .landing-theme .shadow-soft { box-shadow: var(--shadow-soft); }
 
-/* Subtle noise overlay for dark surfaces */
+/* ==================================================
+   NOISE OVERLAY
+   ================================================== */
 .landing-theme .noise-surface {
   position: relative;
   overflow: hidden;
@@ -117,4 +172,89 @@
   opacity: 0.18;
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='noStitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+}
+
+
+/* ===============================
+   CARD CONTENT CONTRAST FIX
+   =============================== */
+
+.landing-theme .noise-surface h3 {
+  color: #ffffff;
+}
+
+.landing-theme .noise-surface p {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Icon container */
+.landing-theme .noise-surface > div > div {
+  background-color: rgba(255, 255, 255, 0.14);
+  ring-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Icon itself */
+.landing-theme .noise-surface svg {
+  color: #ffffff;
+}
+
+
+/* ===============================
+   CARD CONTENT (SCOPED TO LANDING)
+   =============================== */
+
+.landing-theme .noise-surface h3 {
+  color: #ffffff;
+}
+
+.landing-theme .noise-surface p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Icon container */
+.landing-theme .noise-surface > div > div {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Icon itself */
+.landing-theme .noise-surface svg {
+  color: #ffffff;
+}
+
+
+/* ===============================
+   FOOTER "SOON" TOOLTIP (SCOPED)
+   =============================== */
+
+.landing-theme .soon-wrapper {
+  position: relative;
+  cursor: not-allowed;
+}
+
+.landing-theme .soon-wrapper::after {
+  content: "Soon";
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+
+  padding: 4px 8px;
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  color: #061337;
+  background-color: var(--brand-highlight);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.landing-theme .soon-wrapper:hover::after,
+.landing-theme .soon-wrapper:active::after {
+  opacity: 1;
 }
