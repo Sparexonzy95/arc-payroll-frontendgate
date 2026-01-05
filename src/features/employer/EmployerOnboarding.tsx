@@ -10,14 +10,12 @@ interface Props {
   loading?: boolean
 }
 
+const NAVY = '#0E2A55'
+
 const TOKENS = {
   textPrimary: '#0F172A',
   textSecondary: '#475569',
-  textMuted: '#94A3B8',
   divider: 'rgba(15,23,42,0.06)',
-  border: 'rgba(15,23,42,0.08)',
-  primary: '#0B3A8A',
-  primaryMuted: 'rgba(11,58,138,0.08)',
 }
 
 export function EmployerOnboarding({ onSubmit, walletAddress, loading }: Props) {
@@ -42,34 +40,35 @@ export function EmployerOnboarding({ onSubmit, walletAddress, loading }: Props) 
       await onSubmit(trimmedName, trimmedEmail)
       setName('')
       setEmail('')
-    } catch {
-      // Error toast handled elsewhere
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <Card className="mt-4 p-5 sm:p-6">
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <div
-            className="inline-flex h-7 items-center rounded-full px-[10px] text-[12px] font-medium"
-            style={{ background: TOKENS.primaryMuted, color: TOKENS.primary }}
-          >
-            Employer onboarding
-          </div>
+    <Card className="mt-4 overflow-hidden rounded-3xl">
+      {/* NAVY BANNER */}
+      <div
+        className="relative rounded-b-[32px] px-5 py-6 sm:px-6"
+        style={{ backgroundColor: NAVY }}
+      >
+        {/* decorative glow */}
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
 
-          <h2 className="text-[18px] font-semibold" style={{ color: TOKENS.textPrimary }}>
-            Finish employer onboarding
+        <div className="relative z-10 max-w-xl">
+          <h2 className="text-[20px] font-semibold text-white">
+            Get started with Arcflow
           </h2>
-
-          <p className="text-[14px]" style={{ color: TOKENS.textSecondary }}>
-            We detected a connected wallet with no employer record yet. Fill this once and the backend
-            will map this wallet to your employer profile.
+          <p className="mt-1 text-[14px] text-white/80">
+            Bind your wallet to an employer profile to use payrolls, gateway bridge
+            and savings.
           </p>
         </div>
+      </div>
 
+      {/* FORM BODY */}
+      <div className="p-5 sm:p-6 space-y-4">
         {walletAddress && (
           <div
             className="rounded-[10px] px-3 py-2 text-[12px]"

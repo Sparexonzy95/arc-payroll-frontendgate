@@ -297,10 +297,6 @@ export function DashboardPage() {
                   className="space-y-4 p-4 sm:p-5"
                   style={{ background: TOKENS.card, border: `1px solid ${TOKENS.border}` }}
                 >
-                  <h2 className="text-base sm:text-lg font-semibold">Get started with Arcflow</h2>
-                  <p className="text-xs sm:text-sm" style={{ color: TOKENS.textSecondary }}>
-                    Bind your wallet to an employer profile to use payrolls, gateway bridge and savings.
-                  </p>
 
                   <EmployerOnboarding onSubmit={onboardEmployer} walletAddress={address} loading={creatingEmployer} />
                 </Card>
