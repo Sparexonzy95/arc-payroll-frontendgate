@@ -1,133 +1,187 @@
 // src/components/Navbar.tsx
-import { Link, NavLink } from 'react-router-dom'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { Link } from 'react-router-dom'
+import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi'
+import { IconCircleFilled, IconWallet } from '@tabler/icons-react'
 import { Button } from './ui/Button'
-import { Card } from './ui/Card'
-import { motion } from 'framer-motion'
 import { ArcflowLogo } from './branding/ArcflowLogo'
-import { Home } from 'lucide-react'
+import { ARC_CHAIN_ID, BASE_CHAIN_ID } from '../lib/config'
+
+const TOKENS = {
+  navTop: '#0B2A55',
+  navBottom: '#071A3A',
+  navBorder: 'rgba(255,255,255,0.12)',
+
+  capsuleBg: 'rgba(255,255,255,0.08)',
+  capsuleBorder: 'rgba(255,255,255,0.16)',
+
+  segLeftBg: 'rgba(255,255,255,0.07)',
+  segRightBg: 'rgba(255,255,255,0.12)',
+
+  text: 'rgba(255,255,255,0.92)',
+  textMuted: 'rgba(255,255,255,0.74)',
+
+  disconBg: 'rgba(255,255,255,0.92)',
+  disconBorder: 'rgba(255,255,255,0.72)',
+  disconText: 'rgba(11,42,85,0.95)',
+}
+
+function chainLabel(id?: number) {
+  if (!id) return 'Arc Testnet'
+  if (id === ARC_CHAIN_ID) return 'Arc Testnet'
+  if (id === BASE_CHAIN_ID) return 'Base Sepolia'
+  return `Chain ${id}`
+}
+
+function shortAddress(addr?: string) {
+  if (!addr) return '0x----'
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
 
 export function Navbar() {
   const { address, isConnected } = useAccount()
   const { connectors, connect, status: connectStatus } = useConnect()
   const { disconnect } = useDisconnect()
+  const chainId = useChainId()
 
   const mainConnector = connectors[0]
 
-  const shortAddress = address
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : 'Not connected'
+  const network = chainLabel(chainId)
+  const health = 'Healthy'
+  const walletLabel = shortAddress(address)
+
+  const SLANT = 18 // px
 
   return (
     <nav
-      className={[
-        'sticky top-0 z-30 border-b border-subtle',
-        'bg-[var(--nav-bg)]',
-      ].join(' ')}
+      className="sticky top-0 z-30 w-full overflow-x-hidden"
+      style={{
+        background: `radial-gradient(900px 320px at 20% 0%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.00) 60%), linear-gradient(180deg, ${TOKENS.navTop} 0%, ${TOKENS.navBottom} 100%)`,
+        borderBottom: `1px solid ${TOKENS.navBorder}`,
+      }}
     >
-      <div className="flex w-full flex-col gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        {/* Row 1: logo + wallet (mobile simplified, desktop full) */}
-        <div className="flex w-full items-center justify-between gap-3">
-          {/* Brand */}
-          <Link to="/" className="flex items-center gap-3">
-            <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="flex items-center"
-            >
-              <ArcflowLogo compact className="h-8 sm:h-9 md:h-10" />
-            </motion.div>
+      {/* ✅ Mobile-safe row padding + prevent children forcing overflow */}
+      <div className="flex h-[84px] sm:h-[88px] w-full items-center px-3 sm:px-6 min-w-0 overflow-hidden">
+        {/* Logo (tight hitbox, no stretching) */}
+        <div className="flex items-center shrink-0">
+          <Link
+            to="/"
+            aria-label="Go to landing page"
+            className="inline-flex items-center shrink-0"
+            style={{ width: 'fit-content', maxWidth: 'fit-content' }}
+          >
+            <span className="inline-flex items-center shrink-0">
+              <ArcflowLogo compact className="h-9 sm:h-11 w-auto" />
+            </span>
           </Link>
+        </div>
 
-          {/* Wallet area */}
-          {/* Mobile: simple button only */}
-          <div className="flex items-center sm:hidden">
-            {!isConnected ? (
-              <Button
-                variant="primary"
-                size="sm"
-                loading={connectStatus === 'pending'}
-                onClick={() => {
-                  if (mainConnector) connect({ connector: mainConnector })
+        {/* Right side */}
+        <div className="ml-auto flex items-center min-w-0">
+          {/* Outer capsule */}
+          <div
+            className="relative overflow-hidden"
+            style={{
+              height: 40,
+              borderRadius: 999,
+              border: `1px solid ${TOKENS.capsuleBorder}`,
+              background: TOKENS.capsuleBg,
+              boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
+              display: 'flex',
+              alignItems: 'stretch',
+              minWidth: 0,
+              // ✅ keep capsule inside viewport on tiny phones
+              maxWidth: 'min(92vw, 520px)',
+            }}
+          >
+            {/* LEFT segment (hidden on mobile) */}
+            <div
+              className="hidden sm:flex items-center gap-2 pl-4 pr-8"
+              style={{
+                background: TOKENS.segLeftBg,
+                clipPath: `polygon(0% 0%, calc(100% - ${SLANT}px) 0%, 100% 50%, calc(100% - ${SLANT}px) 100%, 0% 100%)`,
+              }}
+            >
+              <span style={{ color: TOKENS.text, fontSize: 13, fontWeight: 600 }}>{network}</span>
+              <span style={{ color: TOKENS.textMuted, opacity: 0.9 }}>•</span>
+              <span className="inline-flex items-center gap-2" style={{ color: TOKENS.textMuted, fontSize: 13 }}>
+                <IconCircleFilled size={8} className="text-green-400" />
+                <span style={{ fontWeight: 600 }}>{health}</span>
+              </span>
+            </div>
+
+            {/* RIGHT segment */}
+            <div
+              className="flex items-center gap-2 pr-2 sm:pr-4 min-w-0"
+              style={{
+                background: TOKENS.segRightBg,
+                // ✅ smaller left padding on mobile, larger on desktop
+                paddingLeft: 14,
+                clipPath: `polygon(${SLANT}px 0%, 100% 0%, 100% 100%, ${SLANT}px 100%, 0% 50%)`,
+                marginLeft: -2,
+              }}
+            >
+              {/* Wallet label should never push width on mobile */}
+              <span
+                className="truncate min-w-0"
+                title={address}
+                style={{
+                  color: TOKENS.text,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  // ✅ clamp hard for mobile, relax on larger screens with CSS
+                  maxWidth: 96,
                 }}
-                className="px-3 py-1 text-[11px]"
               >
-                Connect
-              </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => disconnect()}
-                className="px-3 py-1 text-[11px]"
-              >
-                Disconnect
-              </Button>
-            )}
-          </div>
-
-          {/* Tablet / Desktop: full chip */}
-          <div className="hidden items-center justify-end sm:flex sm:flex-1">
-            <Card className="flex max-w-xs flex-shrink-0 items-center gap-2 rounded-full border border-subtle bg-surface-sunken px-3 py-2 text-[11px]">
-              <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
-                Testnet
+                {walletLabel}
               </span>
 
-              <span className="max-w-[140px] truncate font-mono text-[11px] text-ink-muted">
-                {shortAddress}
-              </span>
-
-              {!isConnected ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  loading={connectStatus === 'pending'}
-                  onClick={() => {
-                    if (mainConnector) connect({ connector: mainConnector })
+              {isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => disconnect()}
+                  className="inline-flex items-center justify-center shrink-0"
+                  style={{
+                    height: 30,
+                    paddingLeft: 10,
+                    paddingRight: 10,
+                    borderRadius: 999,
+                    background: TOKENS.disconBg,
+                    border: `1px solid ${TOKENS.disconBorder}`,
+                    color: TOKENS.disconText,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
+                    whiteSpace: 'nowrap',
                   }}
-                  className="px-2.5 py-1 text-[11px]"
                 >
-                  Connect
-                </Button>
+                  Discon
+                </button>
               ) : (
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => disconnect()}
-                  className="px-2.5 py-1 text-[11px]"
+                  loading={connectStatus === 'pending'}
+                  onClick={() => mainConnector && connect({ connector: mainConnector })}
+                  className="h-[30px] rounded-full px-3 shrink-0"
                 >
-                  Disconnect
+                  <IconWallet size={16} stroke={1.6} />
+                  Connect
                 </Button>
               )}
-            </Card>
+            </div>
           </div>
-        </div>
 
-        {/* Row 2: icon-only Dashboard link to /dashboard */}
-        <div className="flex w-full justify-center">
-          <NavLink
-            to="/dashboard"
-            end
-            aria-label="Go to dashboard"
-            className={({ isActive }) =>
-              [
-                'inline-flex items-center justify-center',
-                'h-9 w-9 sm:h-10 sm:w-10',
-                'rounded-full border border-subtle bg-surface-sunken/90',
-                'text-ink-soft hover:bg-surface-sunken hover:border-[var(--brand-400)] hover:text-ink-primary transition-colors',
-                'shadow-sm',
-                isActive &&
-                  'border-[var(--brand-400)] bg-surface-sunken text-[var(--brand-50)]',
-              ]
-                .filter(Boolean)
-                .join(' ')
-            }
-          >
-            <Home className="h-4 w-4" />
-          </NavLink>
+          {/* ✅ little breathing room from right edge already handled by px-* on row */}
         </div>
       </div>
+
+      {/* ✅ responsive tweak: allow bigger wallet label on >= sm without JS */}
+      <style>{`
+        @media (min-width: 640px) {
+          nav [title] { max-width: 170px !important; }
+          nav [style*="padding-left: 14px"] { padding-left: 32px !important; }
+        }
+      `}</style>
     </nav>
   )
 }

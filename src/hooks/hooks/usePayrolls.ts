@@ -13,6 +13,16 @@ import {
   type PaymentDTO,
 } from '../../api/payrolls'
 
+function invalidatePayroll(qc: ReturnType<typeof useQueryClient>, id?: number) {
+  // refresh list always
+  qc.invalidateQueries({ queryKey: ['payrolls'] })
+
+  // refresh this payroll + its children
+  if (typeof id === 'number') {
+    qc.invalidateQueries({ queryKey: ['payrolls', id], exact: false })
+  }
+}
+
 /**
  * Payroll list – lighter data, can poll a bit slower.
  */
@@ -20,8 +30,7 @@ export function usePayrolls() {
   return useQuery<PayrollDTO[]>({
     queryKey: ['payrolls'],
     queryFn: fetchPayrolls,
-    // dashboard list, moderate polling
-    refetchInterval: 5000,          // 5s
+    refetchInterval: 5000,
     refetchOnWindowFocus: true,
   })
 }
@@ -34,8 +43,7 @@ export function usePayroll(id?: number) {
     queryKey: ['payrolls', id],
     queryFn: () => fetchPayroll(id as number),
     enabled: typeof id === 'number',
-    // detail view, a bit faster
-    refetchInterval: 3000,          // 3s
+    refetchInterval: 3000,
     refetchOnWindowFocus: true,
   })
 }
@@ -48,8 +56,7 @@ export function usePayrollFunding(id?: number) {
     queryKey: ['payrolls', id, 'funding'],
     queryFn: () => fetchPayrollFunding(id as number),
     enabled: typeof id === 'number',
-    // tight polling so "Funded (atomic)" updates quickly
-    refetchInterval: 2000,          // 2s
+    refetchInterval: 2000,
     refetchOnWindowFocus: true,
   })
 }
@@ -62,7 +69,7 @@ export function usePayrollPayments(id?: number) {
     queryKey: ['payrolls', id, 'payments'],
     queryFn: () => fetchPayrollPayments(id as number),
     enabled: typeof id === 'number',
-    refetchInterval: 3000,          // 3s
+    refetchInterval: 3000,
     refetchOnWindowFocus: true,
   })
 }
@@ -72,13 +79,17 @@ export function useCreatePayroll() {
   return useMutation({
     mutationFn: (payload: CreatePayrollPayload) => createPayroll(payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payrolls'] })
+      invalidatePayroll(qc)
     },
   })
 }
 
 export function useCreatePayrollOnchain() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => createPayrollOnchain(id),
+    onSuccess: (_data, id) => {
+      invalidatePayroll(qc, id)
+    },
   })
 }

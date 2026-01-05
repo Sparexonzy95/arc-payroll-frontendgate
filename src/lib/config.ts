@@ -14,3 +14,15 @@ export const BASE_PAYROLL_MANAGER =
 
   export const ARC_SAVINGS_VAULT =
   import.meta.env.VITE_ARC_SAVINGS_VAULT as `0x${string}`
+
+
+
+// ✅ ADD THESE
+export const ARC_STAKING_FACTORY_ADDRESS =
+  import.meta.env.VITE_ARC_STAKING_FACTORY_ADDRESS as `0x${string}`
+
+export const ARC_USDC_ADDRESS =
+  import.meta.env.VITE_ARC_USDC_ADDRESS as `0x${string}`
+
+export const ARC_EURC_ADDRESS =
+  import.meta.env.VITE_ARC_EURC_ADDRESS as `0x${string}`

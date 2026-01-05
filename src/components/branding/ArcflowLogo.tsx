@@ -1,63 +1,39 @@
 // src/components/branding/ArcflowLogo.tsx
-import type { HTMLAttributes } from 'react'
+import type { ImgHTMLAttributes } from 'react'
+import arcflowLogo from '../../assets/arcflow-logo.png'
 
-interface ArcflowLogoProps extends HTMLAttributes<SVGSVGElement> {
+interface ArcflowLogoProps extends ImgHTMLAttributes<HTMLImageElement> {
   /**
-   * Compact mode slightly tightens the viewBox for smaller navbars.
+   * Compact mode for navbars / tighter layouts.
    */
   compact?: boolean
 }
 
 /**
- * Arcflow gradient wordmark
- *
- * - Pure SVG, no background, works on dark UIs
- * - Gradient uses brand blues: var(--brand-200) → var(--brand-400) → var(--brand-50)
- * - Use className to control height (h-6, h-8, etc)
+ * Arcflow logo (image-based, mock-accurate)
+ * - EXTRA oversized for maximum brand presence
+ * - Built for very tall navbar / hero nav
+ * - Aspect ratio preserved
  */
 export function ArcflowLogo({
   compact = false,
   className = '',
+  style,
   ...rest
 }: ArcflowLogoProps) {
-  // Slightly different viewBox for compact vs full
-  const viewBox = compact ? '0 0 260 60' : '0 0 300 60'
-
   return (
-    <svg
-      viewBox={viewBox}
-      role="img"
-      aria-label="Arcflow"
-      className={['block', className].filter(Boolean).join(' ')}
+    <img
+      src={arcflowLogo}
+      alt="Arcflow"
+      className={['block select-none', className].filter(Boolean).join(' ')}
+      style={{
+        height: compact ? 220 : 256, // ⬅️ increased again
+        width: 'auto',
+        objectFit: 'contain',
+        ...style,
+      }}
+      draggable={false}
       {...rest}
-    >
-      <defs>
-        <linearGradient
-          id="arcflow-gradient"
-          x1="0%"
-          y1="0%"
-          x2="100%"
-          y2="0%"
-        >
-          {/* Brand-synced gradient stops */}
-          <stop offset="0%" style={{ stopColor: 'var(--brand-200)' }} />
-          <stop offset="50%" style={{ stopColor: 'var(--brand-400)' }} />
-          <stop offset="100%" style={{ stopColor: 'var(--brand-50)' }} />
-        </linearGradient>
-      </defs>
-
-      {/* Wordmark text */}
-      <text
-        x="0"
-        y="42"
-        fill="url(#arcflow-gradient)"
-        fontFamily={`var(--font-heading), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`}
-        fontSize="40"
-        fontWeight="600"
-        letterSpacing="-0.04em"
-      >
-        Arcflow
-      </text>
-    </svg>
+    />
   )
 }

@@ -1,0 +1,309 @@
+ [
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_treasury", "type": "address" },
+      { "internalType": "address", "name": "_owner", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "by", "type": "address" }
+    ],
+    "name": "ApprovedRefund",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "by", "type": "address" }
+    ],
+    "name": "ApprovedRelease",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "payer", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "by", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "feePaid", "type": "uint256" }
+    ],
+    "name": "Disputed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "payer", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "payee", "type": "address" },
+      { "indexed": false, "internalType": "address", "name": "token", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "indexed": false, "internalType": "address", "name": "arbiter", "type": "address" },
+      { "indexed": false, "internalType": "bytes32", "name": "termsHash", "type": "bytes32" },
+      { "indexed": false, "internalType": "uint64", "name": "timeoutSeconds", "type": "uint64" }
+    ],
+    "name": "EscrowCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "by", "type": "address" },
+      { "indexed": false, "internalType": "bytes32", "name": "evidenceHash", "type": "bytes32" }
+    ],
+    "name": "EvidenceSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "string", "name": "feeType", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }
+    ],
+    "name": "FeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "Refunded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "Released",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "arbiter", "type": "address" },
+      { "indexed": false, "internalType": "bool", "name": "released", "type": "bool" },
+      { "indexed": false, "internalType": "bytes32", "name": "resolutionHash", "type": "bytes32" }
+    ],
+    "name": "Resolved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+      { "indexed": false, "internalType": "bool", "name": "allowed", "type": "bool" }
+    ],
+    "name": "TokenAllowed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "treasury", "type": "address" }
+    ],
+    "name": "TreasuryUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "allowedTokens",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "approveRefund",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "approveRelease",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "payee", "type": "address" },
+      { "internalType": "address", "name": "token", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "address", "name": "arbiter", "type": "address" },
+      { "internalType": "bytes32", "name": "termsHash", "type": "bytes32" },
+      { "internalType": "uint64", "name": "timeoutSeconds", "type": "uint64" }
+    ],
+    "name": "createEscrow",
+    "outputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "dispute",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "disputeFee",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "escrowCreationFee",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "escrows",
+    "outputs": [
+      { "internalType": "address", "name": "payer", "type": "address" },
+      { "internalType": "address", "name": "payee", "type": "address" },
+      { "internalType": "address", "name": "token", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "address", "name": "arbiter", "type": "address" },
+      { "internalType": "bytes32", "name": "termsHash", "type": "bytes32" },
+      { "internalType": "enum ArcflowEscrow.Status", "name": "status", "type": "uint8" },
+      { "internalType": "bool", "name": "disputed", "type": "bool" },
+      { "internalType": "uint64", "name": "createdAt", "type": "uint64" },
+      { "internalType": "uint64", "name": "fundedAt", "type": "uint64" },
+      { "internalType": "uint64", "name": "timeoutSeconds", "type": "uint64" },
+      { "internalType": "bool", "name": "payerApprovedRelease", "type": "bool" },
+      { "internalType": "bool", "name": "payeeApprovedRelease", "type": "bool" },
+      { "internalType": "bool", "name": "payerApprovedRefund", "type": "bool" },
+      { "internalType": "bool", "name": "payeeApprovedRefund", "type": "bool" },
+      { "internalType": "bytes32", "name": "payerEvidenceHash", "type": "bytes32" },
+      { "internalType": "bytes32", "name": "payeeEvidenceHash", "type": "bytes32" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "executeRefund",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }],
+    "name": "executeRelease",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextEscrowId",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "internalType": "bytes32", "name": "resolutionHash", "type": "bytes32" }
+    ],
+    "name": "resolveRefund",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "internalType": "bytes32", "name": "resolutionHash", "type": "bytes32" }
+    ],
+    "name": "resolveRelease",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "token", "type": "address" },
+      { "internalType": "bool", "name": "allowed", "type": "bool" }
+    ],
+    "name": "setAllowedToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  { "inputs": [{ "internalType": "uint256", "name": "fee", "type": "uint256" }], "name": "setDisputeFee", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "fee", "type": "uint256" }], "name": "setEscrowCreationFee", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "_treasury", "type": "address" }], "name": "setTreasury", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "escrowId", "type": "uint256" },
+      { "internalType": "bytes32", "name": "evidenceHash", "type": "bytes32" }
+    ],
+    "name": "submitEvidence",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  { "inputs": [{ "internalType": "uint256", "name": "escrowId", "type": "uint256" }], "name": "timeoutRefund", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "newOwner", "type": "address" }], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  {
+    "inputs": [],
+    "name": "treasury",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  { "stateMutability": "payable", "type": "receive" }
+]

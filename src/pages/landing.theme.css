@@ -1,0 +1,120 @@
+/* src/pages/landing.theme.css */
+
+/* Scope EVERYTHING to the landing page wrapper */
+.landing-theme {
+  /* Brand scale from your palette */
+  --brand-50:  #e3eefa;
+  --brand-200: #92bbee;
+  --brand-400: #4189e1;
+  --brand-500: #1a5bab;
+  --brand-600: #164c90;
+  --brand-700: #0e305a;
+  --brand-800: #0c2b51;
+  --nav-bg: #02071c;
+
+  /* Surfaces (synced to dashboard theme) */
+  --bg-body:      #02071c;
+  --bg-elevated:  #050b26;
+  --bg-sunken:    #010413;
+
+  --border-subtle: #0b1224;
+  --border-strong: #1e293b;
+
+  /* Text */
+  --text-primary: #f9fbff;
+  --text-muted:   #9ca9c9;
+  --text-soft:    #7b88a8;
+
+  /* States / effects */
+  --focus-ring:   rgba(65, 137, 225, 0.7);
+  --overlay-soft: rgba(6, 15, 30, 0.8);
+
+  /* No shadow boxing */
+  --shadow-soft:  none;
+
+  /* Radius */
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Fonts */
+  --font-heading: "Sora", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:    "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Landing-only base feel */
+.landing-theme {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  margin: 0;
+  background: radial-gradient(circle at top, var(--brand-800) 0, var(--bg-body) 52%) fixed;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* Headings / hero titles use heading font from tokens */
+.landing-theme h1,
+.landing-theme h2,
+.landing-theme h3,
+.landing-theme .heading-font {
+  font-family: var(--font-heading);
+}
+
+/* Small structural helpers */
+.landing-theme .app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-body);
+}
+
+.landing-theme .container-page {
+  max-width: 72rem; /* max-w-6xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+/* --------- Utility classes tied to tokens --------- */
+
+/* Fonts */
+.landing-theme .font-heading { font-family: var(--font-heading); }
+.landing-theme .font-body { font-family: var(--font-body); }
+
+/* Text colors */
+.landing-theme .text-ink-primary { color: var(--text-primary); }
+.landing-theme .text-ink-muted { color: var(--text-muted); }
+.landing-theme .text-ink-soft { color: var(--text-soft); }
+
+/* Background surfaces */
+.landing-theme .bg-surface-body { background-color: var(--bg-body); }
+.landing-theme .bg-surface-elevated { background-color: var(--bg-elevated); }
+.landing-theme .bg-surface-sunken { background-color: var(--bg-sunken); }
+
+/* Borders */
+.landing-theme .border-subtle { border-color: var(--border-subtle); }
+.landing-theme .border-strong { border-color: var(--border-strong); }
+
+/* Shadows – neutralised */
+.landing-theme .shadow-soft { box-shadow: var(--shadow-soft); }
+
+/* Subtle noise overlay for dark surfaces */
+.landing-theme .noise-surface {
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-theme .noise-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='noStitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+}

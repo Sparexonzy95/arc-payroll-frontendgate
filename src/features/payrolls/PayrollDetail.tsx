@@ -1,18 +1,29 @@
 // src/features/payrolls/PayrollDetail.tsx
-import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import {
   usePayroll,
   usePayrollFunding,
   usePayrollPayments,
   useCreatePayrollOnchain,
-} from '././hooks/hooks/usePayrolls'
-import { useChains, useTokens } from '././hooks/useChains'
-import { Card } from '././components/ui/Card'
-import { Skeleton } from '././components/Skeleton'
-import { StatusPill } from '././components/StatusPill'
-import { Button } from '././components/ui/Button'
-import { ChainBadge } from '././components/ChainBadge'
+} from '../../hooks/hooks/usePayrolls'
+import { useChains, useTokens } from '../../hooks/useChains'
+import { Card } from '../../components/ui/Card'
+import { Skeleton } from '../../components/Skeleton'
+import { StatusPill } from '../../components/StatusPill'
+import { Button } from '../../components/ui/Button'
+import { ChainBadge } from '../../components/ChainBadge'
+
+import {
+  IconArrowLeft,
+  IconWallet,
+  IconCoins,
+  IconChecklist,
+  IconBuildingBank,
+  IconExternalLink,
+  IconRefresh,
+} from '@tabler/icons-react'
+
 import {
   useAccount,
   useChainId,
@@ -23,8 +34,8 @@ import {
 } from 'wagmi'
 import { erc20Abi } from 'viem'
 import toast from 'react-hot-toast'
-import type { TokenDTO } from '././api/chains'
-import { api } from '././api/client'
+import type { TokenDTO } from '../../api/chains'
+import { api } from '../../api/client'
 
 type FundCallPayload = {
   to: string
@@ -45,18 +56,11 @@ type RawCall = {
   chainId: number
 }
 
-function atomicToHuman(
-  amountAtomic: string | number | bigint,
-  decimals = 6
-): string {
+function atomicToHuman(amountAtomic: string | number | bigint, decimals = 6): string {
   const big =
     typeof amountAtomic === 'bigint'
       ? amountAtomic
-      : BigInt(
-          typeof amountAtomic === 'number'
-            ? Math.trunc(amountAtomic)
-            : amountAtomic
-        )
+      : BigInt(typeof amountAtomic === 'number' ? Math.trunc(amountAtomic) : amountAtomic)
 
   if (decimals === 0) return big.toString()
 
@@ -94,6 +98,46 @@ async function wait(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+/* -----------------------------
+   Theme-synced UI helpers
+   (keeps naming conventions, only changes visuals)
+----------------------------- */
+function SurfaceCard(props: { className?: string; children: React.ReactNode }) {
+  return (
+    <Card
+      className={[
+        'rounded-[var(--arc-radius-xl)] border border-subtle bg-surface-elevated shadow-soft',
+        props.className ?? '',
+      ].join(' ')}
+    >
+      {props.children}
+    </Card>
+  )
+}
+
+function SectionTitle(props: { title: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h3 className="text-sm font-semibold text-ink-primary">{props.title}</h3>
+      {props.right}
+    </div>
+  )
+}
+
+function TableShell(props: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated">
+      <div className="overflow-x-auto">{props.children}</div>
+    </div>
+  )
+}
+
+function chipClass(kind: 'warn' | 'ok' | 'info') {
+  if (kind === 'ok') return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+  if (kind === 'info') return 'bg-blue-50 text-blue-700 border-blue-100'
+  return 'bg-amber-50 text-amber-800 border-amber-100'
+}
+
 export function PayrollDetail() {
   const params = useParams()
   const id = params.id ? Number(params.id) : undefined
@@ -125,6 +169,16 @@ export function PayrollDetail() {
 
   // single global lock so mobile can’t spam txs
   const [txLock, setTxLock] = useState(false)
+
+  // ✅ Freeze funding from PAYMENTS (source of truth)
+  // - payroll.status can lag, but payment.status / dispatched_tx_hash updates first.
+  const isDispatched = useMemo(() => {
+    const list = (payments ?? []) as any[]
+    return list.some(
+      (p) =>
+        String(p?.status ?? '').toLowerCase() === 'dispatched' || Boolean(p?.dispatched_tx_hash)
+    )
+  }, [payments])
 
   function findChain() {
     if (!payroll || !chains) return undefined
@@ -301,8 +355,7 @@ export function PayrollDetail() {
       setTimeout(() => refetch(), 4000)
     } catch (err: any) {
       console.error(err)
-      const msg =
-        err?.shortMessage || err?.message || 'Failed to create payroll on-chain'
+      const msg = err?.shortMessage || err?.message || 'Failed to create payroll on-chain'
       toast.error(msg, { id: 'create-onchain' })
     } finally {
       setCreatingOnchain(false)
@@ -313,6 +366,12 @@ export function PayrollDetail() {
    * FUND PAYROLL (escrow + relayer gas)
    */
   async function handleFundPayroll() {
+    // ✅ HARD GUARD: once dispatched (from payments), funding is locked
+    if (isDispatched) {
+      toast.error('Payroll is already dispatched. Funding is locked.')
+      return
+    }
+
     if (!payroll) {
       toast.error('No payroll loaded')
       return
@@ -348,8 +407,7 @@ export function PayrollDetail() {
 
       const rewardPerDispatchHuman = '0.01'
       const rewardPerDispatchNum = 0.01
-      const rewardPoolTotalNum =
-        totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
+      const rewardPoolTotalNum = totalPayments > 0 ? rewardPerDispatchNum * totalPayments : 0
 
       const rewardPoolTotalHuman =
         rewardPoolTotalNum > 0
@@ -357,9 +415,7 @@ export function PayrollDetail() {
           : '0'.padEnd(decimals + 2, '0')
 
       const rewardPoolAtomic =
-        rewardPoolTotalNum > 0
-          ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals))
-          : 0n
+        rewardPoolTotalNum > 0 ? BigInt(Math.round(rewardPoolTotalNum * 10 ** decimals)) : 0n
 
       toast.loading('Preparing funding transactions.', { id: 'fund' })
 
@@ -375,46 +431,31 @@ export function PayrollDetail() {
         return
       }
 
-      let setRewardCall:
-        | { to: string; data: string; chainId: number }
-        | null = null
-      let fundRewardCall:
-        | { to: string; data: string; chainId: number }
-        | null = null
+      let setRewardCall: { to: string; data: string; chainId: number } | null = null
+      let fundRewardCall: { to: string; data: string; chainId: number } | null = null
 
       if (rewardPoolTotalNum > 0 && totalPayments > 0) {
         try {
-          const resSet = await api.post(
-            `/api/payrolls/payrolls/${dbId}/set_relayer_reward/`,
-            {
-              token_address: tokenAddress,
-              reward_human: rewardPerDispatchHuman,
-            }
-          )
+          const resSet = await api.post(`/api/payrolls/payrolls/${dbId}/set_relayer_reward/`, {
+            token_address: tokenAddress,
+            reward_human: rewardPerDispatchHuman,
+          })
           setRewardCall = resSet.data
 
-          const resReward = await api.post(
-            `/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`,
-            {
-              token_address: tokenAddress,
-              amount_human: rewardPoolTotalHuman,
-            }
-          )
+          const resReward = await api.post(`/api/payrolls/payrolls/${dbId}/fund_relayer_reward/`, {
+            token_address: tokenAddress,
+            amount_human: rewardPoolTotalHuman,
+          })
           fundRewardCall = resReward.data
         } catch (err: any) {
-          console.error(
-            'Relayer reward setup failed, continuing with escrow only',
-            err
-          )
+          console.error('Relayer reward setup failed, continuing with escrow only', err)
           toast.error(
             'Relayer reward setup failed, funding escrow only. Check backend set_relayer_reward/fund_relayer_reward.'
           )
         }
       }
 
-      const extraRewardAtomic =
-        setRewardCall && fundRewardCall ? rewardPoolAtomic : 0n
-
+      const extraRewardAtomic = setRewardCall && fundRewardCall ? rewardPoolAtomic : 0n
       const totalApproveAmount = escrowDeficitAtomic + extraRewardAtomic
 
       // 3) approve (ABI write is already safe)
@@ -427,22 +468,20 @@ export function PayrollDetail() {
         args: [fundCall.to as `0x${string}`, totalApproveAmount],
       })
 
-      // 4) configure reward (optional) - raw calldata, must use sendRawCall
+      // 4) configure reward (optional)
       if (setRewardCall) {
         toast.loading('Configuring relayer reward.', { id: 'fund' })
         await sendRawCall(setRewardCall, 'fund')
       }
 
-      // 5) fund escrow - raw calldata, must use sendRawCall
-      toast.loading(`Funding payroll with ${fundCall.deficit_human} units.`, {
-        id: 'fund',
-      })
+      // 5) fund escrow
+      toast.loading(`Funding payroll with ${fundCall.deficit_human} units.`, { id: 'fund' })
       const hash = await sendRawCall(
         { to: fundCall.to, data: fundCall.data, chainId: fundCall.chainId },
         'fund'
       )
 
-      // 6) fund reward pool (optional) - raw calldata
+      // 6) fund reward pool (optional)
       if (fundRewardCall) {
         toast.loading('Funding relayer gas vault.', { id: 'fund' })
         await sendRawCall(fundRewardCall, 'fund')
@@ -458,9 +497,7 @@ export function PayrollDetail() {
       refetchFunding()
       refetch()
 
-      toast.success(`Payroll funded! Tx: ${hash.slice(0, 10)}...`, {
-        id: 'fund',
-      })
+      toast.success(`Payroll funded! Tx: ${hash.slice(0, 10)}...`, { id: 'fund' })
     } catch (err: any) {
       console.error(err)
       const msg =
@@ -476,9 +513,7 @@ export function PayrollDetail() {
     try {
       setVerifyingId(paymentId)
 
-      const res = await api.get(
-        `/api/payrolls/payments/${paymentId}/verify_onchain/`
-      )
+      const res = await api.get(`/api/payrolls/payments/${paymentId}/verify_onchain/`)
       const data = res.data as {
         status_db: string
         onchain_is_processed: boolean | null
@@ -489,9 +524,7 @@ export function PayrollDetail() {
       }
 
       if (data.onchain_is_processed && data.receipt_status === 1) {
-        toast.success(
-          `Verified on chain: processed on ${data.chain_name ?? 'chain'}`
-        )
+        toast.success(`Verified on chain: processed on ${data.chain_name ?? 'chain'}`)
       } else if (data.onchain_is_processed === false) {
         toast.error('On chain reports this payment as not processed yet')
       } else {
@@ -503,10 +536,7 @@ export function PayrollDetail() {
       await refetch()
     } catch (err: any) {
       console.error(err)
-      const msg =
-        err?.response?.data?.detail ||
-        err?.message ||
-        'Failed to verify on chain'
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to verify on chain'
       toast.error(msg)
     } finally {
       setVerifyingId(null)
@@ -538,9 +568,7 @@ export function PayrollDetail() {
 
       const hash = await sendRawCall(call, 'finalize')
 
-      toast.success(`Finalize submitted: ${hash.slice(0, 10)}...`, {
-        id: 'finalize',
-      })
+      toast.success(`Finalize submitted: ${hash.slice(0, 10)}...`, { id: 'finalize' })
 
       await refetch()
       await refetchPayments()
@@ -588,12 +616,9 @@ export function PayrollDetail() {
       })
 
       const call: RawCall = res.data
-
       const hash = await sendRawCall(call, 'withdraw')
 
-      toast.success(`Withdraw submitted: ${hash.slice(0, 10)}...`, {
-        id: 'withdraw',
-      })
+      toast.success(`Withdraw submitted: ${hash.slice(0, 10)}...`, { id: 'withdraw' })
 
       await refetchFunding()
       await refetch()
@@ -611,211 +636,276 @@ export function PayrollDetail() {
     }
   }
 
+  const chain = useMemo(() => findChain(), [payroll, chains])
+  const token = useMemo(
+    () => findTokenByAddress(payroll?.default_token_address),
+    [tokens, payroll?.default_token_address]
+  )
+  const explorerBase = getExplorerBaseUrl(chain?.chain_id)
+
+  const fundingSummary = funding?.summary ?? []
+  const deficit = fundingSummary?.[0]?.deficit ?? '0.00'
+  const hasDeficit = Number(deficit) > 0
+
+  // ✅ Final UI disable flag
+  const fundDisabled = txLock || isDispatched
+
   // ---------------------------------------------
-  // Loading / error states
+  // Loading / error states (theme-synced)
   // ---------------------------------------------
   if (isLoading) {
     return (
-      <Card className="space-y-4 border border-slate-800/80 bg-slate-950/70 p-6">
+      <SurfaceCard className="p-6 space-y-4">
         <Skeleton className="h-6 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-40 w-full" />
-      </Card>
+      </SurfaceCard>
     )
   }
 
   if (error || !payroll) {
     return (
-      <Card className="border border-rose-500/40 bg-slate-950/80 p-6">
-        <p className="text-sm text-rose-300">Failed to load payroll.</p>
-      </Card>
+      <SurfaceCard className="p-6">
+        <p className="text-sm text-red-600">Failed to load payroll.</p>
+      </SurfaceCard>
     )
   }
 
-  const chain = findChain()
-  const token = findTokenByAddress(payroll.default_token_address)
-  const explorerBase = getExplorerBaseUrl(chain?.chain_id)
-
   return (
-    <div className="space-y-5">
-      {/* Header / meta */}
-      <Card className="space-y-4 border border-slate-800/80 bg-slate-950/80 p-5 shadow-lg shadow-sky-500/10">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-semibold text-slate-50">
-              {payroll.title || `Payroll #${payroll.payroll_id}`}
-            </h2>
-            <p className="text-sm text-slate-300">
-              On-chain ID #{payroll.payroll_id}{' '}
-              {chain && (
-                <>
-                  · <span>{chain.name}</span>
-                </>
-              )}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <StatusPill status={payroll.status} />
-            {chain && <ChainBadge name={chain.name} chainId={chain.chain_id} />}
-          </div>
+    <div className="bg-surface-body">
+      <div className="space-y-5">
+        {/* Back */}
+        <div>
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 text-sm font-medium text-ink-soft hover:text-ink-primary"
+          >
+            <IconArrowLeft size={16} />
+            Dashboard
+          </Link>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-1 text-sm text-slate-200">
-            <p className="font-semibold text-slate-400">Chain</p>
-            <p className="text-xs text-slate-300">
-              {chain ? `${chain.name} (chainId ${chain.chain_id})` : 'Unknown'}
-            </p>
+        {/* Header */}
+        <SurfaceCard className="p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-xl md:text-2xl font-semibold text-ink-primary">
+                {payroll.title || `Payroll #${payroll.payroll_id}`}
+              </h2>
+              <p className="text-sm text-ink-soft">
+                On-chain ID <span className="font-semibold text-ink-primary">#{payroll.payroll_id}</span>{' '}
+                {chain ? (
+                  <>
+                    · <span className="text-ink-soft">{chain.name}</span>
+                  </>
+                ) : null}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <StatusPill status={payroll.status} />
+              {chain && <ChainBadge name={chain.name} chainId={chain.chain_id} />}
+            </div>
           </div>
 
-          <div className="space-y-1 text-sm text-slate-200">
-            <p className="font-semibold text-slate-400">Default token</p>
-            <p className="font-mono text-xs">
-              {token ? token.symbol : 'Token'} ·{' '}
-              {payroll.default_token_address?.slice(0, 6)}…
-              {payroll.default_token_address?.slice(-4)}
-            </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated p-4">
+              <p className="text-xs font-semibold text-ink-muted">Chain</p>
+              <p className="mt-1 text-sm text-ink-primary">
+                {chain ? `${chain.name} (chainId ${chain.chain_id})` : 'Unknown'}
+              </p>
+            </div>
+
+            <div className="rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated p-4">
+              <p className="text-xs font-semibold text-ink-muted">Default token</p>
+              <p className="mt-1 text-sm text-ink-primary">
+                {token ? token.symbol : 'Token'}{' '}
+                <span className="text-ink-soft">
+                  · {payroll.default_token_address?.slice(0, 6)}…{payroll.default_token_address?.slice(-4)}
+                </span>
+              </p>
+            </div>
+
+            <div className="rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated p-4">
+              <p className="text-xs font-semibold text-ink-muted">Totals</p>
+              <p className="mt-1 text-sm text-ink-primary">
+                Net: <span className="font-mono">{payroll.total_net_amount}</span> · Tax:{' '}
+                <span className="font-mono">{payroll.total_tax_amount}</span>
+              </p>
+              <p className="mt-1 text-xs text-ink-soft">{payroll.total_payments} scheduled payments</p>
+            </div>
           </div>
 
-          <div className="space-y-1 text-sm text-slate-200">
-            <p className="font-semibold text-slate-400">Totals</p>
-            <p className="font-mono text-xs">
-              Net: {payroll.total_net_amount} · Tax: {payroll.total_tax_amount}
-            </p>
-            <p className="text-slate-500 text-xs">
-              {payroll.total_payments} scheduled payments
-            </p>
-          </div>
-        </div>
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            {payroll.status === 'draft' && (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleCreateOnchain}
+                disabled={creatingOnchain || txLock}
+                loading={creatingOnchain || createOnchainMutation.isPending || txLock}
+              >
+                <IconChecklist size={16} />
+                Create on-chain
+              </Button>
+            )}
 
-        <div className="flex flex-wrap gap-2.5">
-          {payroll.status === 'draft' && (
+            {/* ✅ FUNDING FREEZE WHEN ANY PAYMENT IS DISPATCHED */}
             <Button
               size="sm"
-              variant="primary"
-              onClick={handleCreateOnchain}
-              disabled={creatingOnchain || txLock}
-              loading={creatingOnchain || createOnchainMutation.isPending || txLock}
+              variant="secondary"
+              onClick={handleFundPayroll}
+              disabled={fundDisabled}
+              title={isDispatched ? 'Payments dispatched. Funding locked.' : txLock ? 'Transaction in progress' : undefined}
             >
-              {creatingOnchain ? 'Creating…' : 'Create on-chain'}
+              <IconWallet size={16} />
+              {isDispatched ? 'Funding locked' : 'Fund payroll'}
             </Button>
-          )}
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleFundPayroll}
-            disabled={txLock}
-          >
-            Fund payroll
-          </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleFinalizePayroll}
+              disabled={finalizing || txLock}
+              loading={finalizing || txLock}
+            >
+              <IconBuildingBank size={16} />
+              Finalize
+            </Button>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleFinalizePayroll}
-            disabled={finalizing || txLock}
-            loading={finalizing || txLock}
-          >
-            Finalize
-          </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleWithdrawLeftovers}
+              disabled={withdrawing || txLock}
+              loading={withdrawing || txLock}
+            >
+              <IconCoins size={16} />
+              Withdraw leftovers
+            </Button>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleWithdrawLeftovers}
-            disabled={withdrawing || txLock}
-            loading={withdrawing || txLock}
-          >
-            Withdraw leftovers
-          </Button>
-        </div>
+            {leftoversHuman && parseFloat(leftoversHuman) > 0 ? (
+              <span
+                className={[
+                  'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
+                  chipClass('info'),
+                ].join(' ')}
+              >
+                Leftovers: <span className="font-mono">{leftoversHuman}</span>
+              </span>
+            ) : null}
+          </div>
 
-        {txLock && (
-          <p className="text-[11px] text-slate-400">
-            Transaction in progress. Please confirm in your wallet.
-          </p>
-        )}
-      </Card>
+          {txLock ? (
+            <p className="mt-3 text-[11px] text-ink-muted">
+              Transaction in progress. Please confirm in your wallet.
+            </p>
+          ) : null}
 
-      {/* Funding */}
-      <Card className="space-y-3 border border-slate-800/80 bg-slate-950/80 p-5">
-        <h3 className="text-base font-semibold text-slate-100">Funding</h3>
+          {isDispatched ? (
+            <p className="mt-3 text-[11px] text-ink-muted">
+              Dispatch started (from payments). Funding is locked to keep balances consistent.
+            </p>
+          ) : null}
+        </SurfaceCard>
 
-        {funding ? (
-          funding.summary.length === 0 ? (
-            <p className="text-sm text-slate-400">No funding summary yet.</p>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/90">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-xs text-slate-200">
-                  <thead className="border-b border-slate-800 bg-slate-950/90 text-slate-400">
+        {/* Funding */}
+        <SurfaceCard className="p-5 space-y-3">
+          <SectionTitle
+            title="Funding"
+            right={
+              hasDeficit ? (
+                <span
+                  className={[
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
+                    chipClass('warn'),
+                  ].join(' ')}
+                >
+                  ⚠ Deficit: <span className="font-mono">{deficit}</span>
+                </span>
+              ) : (
+                <span
+                  className={[
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
+                    chipClass('ok'),
+                  ].join(' ')}
+                >
+                  ✓ Funded
+                </span>
+              )
+            }
+          />
+
+          {funding ? (
+            fundingSummary.length === 0 ? (
+              <p className="text-sm text-ink-muted">No funding summary yet.</p>
+            ) : (
+              <TableShell>
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-surface-sunken text-xs font-semibold text-ink-muted">
                     <tr>
-                      <th className="px-3 py-2.5">Token</th>
-                      <th className="px-3 py-2.5 text-right">Required</th>
-                      <th className="px-3 py-2.5 text-right">Funded</th>
-                      <th className="px-3 py-2.5 text-right">Deficit</th>
+                      <th className="px-4 py-3">Token</th>
+                      <th className="px-4 py-3 text-right">Required (atomic)</th>
+                      <th className="px-4 py-3 text-right">Funded (atomic)</th>
+                      <th className="px-4 py-3 text-right">Deficit (atomic)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-900/80">
-                    {funding.summary.map((item) => {
+                  <tbody className="divide-y divide-[var(--arc-divider)]">
+                    {fundingSummary.map((item) => {
                       const t = findTokenByAddress(item.token_address)
+                      const rowDeficit = Number(item.deficit ?? 0)
                       return (
-                        <tr
-                          key={item.token_address}
-                          className="transition hover:bg-slate-900/60"
-                        >
-                          <td className="px-3 py-2.5">
+                        <tr key={item.token_address} className="hover:bg-surface-sunken/60">
+                          <td className="px-4 py-3 font-medium text-ink-primary">
                             {t ? t.symbol : item.token_address}
                           </td>
-                          <td className="px-3 py-2.5 text-right font-mono">
+                          <td className="px-4 py-3 text-right font-mono text-ink-primary">
                             {item.required}
                           </td>
-                          <td className="px-3 py-2.5 text-right font-mono">
+                          <td className="px-4 py-3 text-right font-mono text-ink-primary">
                             {item.funded}
                           </td>
-                          <td className="px-3 py-2.5 text-right font-mono">
-                            {item.deficit}
+                          <td className="px-4 py-3 text-right font-mono">
+                            <span className={rowDeficit > 0 ? 'text-amber-700' : 'text-emerald-700'}>
+                              {item.deficit}
+                            </span>
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          )
-        ) : (
-          <p className="text-sm text-slate-400">Loading funding…</p>
-        )}
-      </Card>
+              </TableShell>
+            )
+          ) : (
+            <p className="text-sm text-ink-muted">Loading funding…</p>
+          )}
+        </SurfaceCard>
 
-      {/* Payments */}
-      <Card className="space-y-3 border border-slate-800/80 bg-slate-950/80 p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-100">Payments</h3>
-          <p className="text-xs text-slate-400">
-            Total {payments?.length ?? 0} rows
-          </p>
-        </div>
+        {/* Payments */}
+        <SurfaceCard className="p-5 space-y-3">
+          <SectionTitle
+            title="Payments"
+            right={<p className="text-xs text-ink-muted">Total {payments?.length ?? 0} rows</p>}
+          />
 
-        {payments && payments.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/90">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs text-slate-200">
-                <thead className="border-b border-slate-800 bg-slate-950/90 text-slate-400">
+          {payments && payments.length > 0 ? (
+            <TableShell>
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-surface-sunken text-xs font-semibold text-ink-muted">
                   <tr>
-                    <th className="px-3 py-2.5">Index</th>
-                    <th className="px-3 py-2.5">Employee</th>
-                    <th className="px-3 py-2.5">Token</th>
-                    <th className="px-3 py-2.5 text-right">Net</th>
-                    <th className="px-3 py-2.5 text-right">Tax</th>
-                    <th className="px-3 py-2.5">Status</th>
-                    <th className="px-3 py-2.5">Tx</th>
-                    <th className="px-3 py-2.5">Verify</th>
+                    <th className="px-4 py-3">Index</th>
+                    <th className="px-4 py-3">Employee</th>
+                    <th className="px-4 py-3">Token</th>
+                    <th className="px-4 py-3 text-right">Net</th>
+                    <th className="px-4 py-3 text-right">Tax</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Tx</th>
+                    <th className="px-4 py-3 text-right">Verify</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-900/80">
+
+                <tbody className="divide-y divide-[var(--arc-divider)]">
                   {payments.map((p) => {
                     const t = findTokenByAddress(p.token_address)
                     const shortTx =
@@ -828,48 +918,49 @@ export function PayrollDetail() {
                         ? p.dispatched_tx_hash
                         : `0x${p.dispatched_tx_hash}`)
 
-                    const txLink =
-                      explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
+                    const txLink = explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
 
                     return (
-                      <tr key={p.id} className="transition hover:bg-slate-900/60">
-                        <td className="px-3 py-2.5 font-mono">{p.payroll_index}</td>
-                        <td className="px-3 py-2.5 font-mono">
+                      <tr key={p.id} className="hover:bg-surface-sunken/60">
+                        <td className="px-4 py-3 font-mono text-ink-primary">{p.payroll_index}</td>
+                        <td className="px-4 py-3 font-mono text-ink-primary">
                           {p.employee_address.slice(0, 6)}…{p.employee_address.slice(-4)}
                         </td>
-                        <td className="px-3 py-2.5">
-                          {t ? t.symbol : p.token_address.slice(0, 6) + '…'}
+                        <td className="px-4 py-3 text-ink-primary">
+                          {t ? t.symbol : `${p.token_address.slice(0, 6)}…`}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono">
+                        <td className="px-4 py-3 text-right font-mono text-ink-primary">
                           {p.net_amount_atomic}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono">
+                        <td className="px-4 py-3 text-right font-mono text-ink-primary">
                           {p.tax_amount_atomic}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
                           <StatusPill status={p.status} />
                         </td>
-                        <td className="px-3 py-2.5 font-mono">
+                        <td className="px-4 py-3 font-mono text-sm">
                           {txLink && shortTx ? (
                             <a
                               href={txLink}
                               target="_blank"
                               rel="noreferrer"
-                              className="underline decoration-dotted"
+                              className="inline-flex items-center gap-1 text-ink-primary underline decoration-dotted hover:opacity-80"
                             >
                               {shortTx}
+                              <IconExternalLink size={14} />
                             </a>
                           ) : (
-                            shortTx ?? 'none'
+                            <span className="text-ink-muted">{shortTx ?? '—'}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3 text-right">
                           <Button
                             size="xs"
                             variant="secondary"
                             onClick={() => handleVerifyOnchain(p.id)}
                             disabled={verifyingId === p.id}
                           >
+                            <IconRefresh size={14} />
                             {verifyingId === p.id ? 'Verifying...' : 'Verify'}
                           </Button>
                         </td>
@@ -878,12 +969,12 @@ export function PayrollDetail() {
                   })}
                 </tbody>
               </table>
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400">No payments found.</p>
-        )}
-      </Card>
+            </TableShell>
+          ) : (
+            <p className="text-sm text-ink-muted">No payments found.</p>
+          )}
+        </SurfaceCard>
+      </div>
     </div>
   )
 }

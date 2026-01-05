@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
-import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -11,11 +10,17 @@ interface Props {
   loading?: boolean
 }
 
-export function EmployerOnboarding({
-  onSubmit,
-  walletAddress,
-  loading,
-}: Props) {
+const TOKENS = {
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
+  divider: 'rgba(15,23,42,0.06)',
+  border: 'rgba(15,23,42,0.08)',
+  primary: '#0B3A8A',
+  primaryMuted: 'rgba(11,58,138,0.08)',
+}
+
+export function EmployerOnboarding({ onSubmit, walletAddress, loading }: Props) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -35,46 +40,55 @@ export function EmployerOnboarding({
     try {
       setSubmitting(true)
       await onSubmit(trimmedName, trimmedEmail)
-      // Clear the form on success
       setName('')
       setEmail('')
     } catch {
-      // Error toast is handled in the hook already
+      // Error toast handled elsewhere
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <Card className="mt-4 border-dashed border-[color:var(--brand-400)] bg-surface-elevated">
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4"
-      >
-        <div className="space-y-2">
-          <h2 className="text-[18px] font-heading font-semibold text-ink-primary">
+    <Card className="mt-4 p-5 sm:p-6">
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <div
+            className="inline-flex h-7 items-center rounded-full px-[10px] text-[12px] font-medium"
+            style={{ background: TOKENS.primaryMuted, color: TOKENS.primary }}
+          >
+            Employer onboarding
+          </div>
+
+          <h2 className="text-[18px] font-semibold" style={{ color: TOKENS.textPrimary }}>
             Finish employer onboarding
           </h2>
-          <p className="text-[13px] text-ink-muted">
-            We detected a connected wallet with no employer record yet. Fill this
-            once and the backend will map this wallet to your employer profile.
+
+          <p className="text-[14px]" style={{ color: TOKENS.textSecondary }}>
+            We detected a connected wallet with no employer record yet. Fill this once and the backend
+            will map this wallet to your employer profile.
           </p>
         </div>
 
         {walletAddress && (
-          <div className="rounded-xl border border-subtle bg-surface-sunken px-3 py-2 text-[12px] text-ink-soft">
+          <div
+            className="rounded-[10px] px-3 py-2 text-[12px]"
+            style={{
+              border: `1px solid ${TOKENS.divider}`,
+              background: 'rgba(15,23,42,0.02)',
+              color: TOKENS.textSecondary,
+            }}
+          >
             Wallet:{' '}
-            <span className="font-mono text-ink-primary">
+            <span className="font-mono" style={{ color: TOKENS.textPrimary }}>
               {walletAddress}
             </span>
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid gap-4 md:grid-cols-2"
-        >
+        <div style={{ borderTop: `1px solid ${TOKENS.divider}` }} />
+
+        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <Input
             label="Employer name"
             placeholder="Acme Inc."
@@ -82,6 +96,7 @@ export function EmployerOnboarding({
             onChange={(e) => setName(e.target.value)}
             required
           />
+
           <Input
             type="email"
             label="Contact email"
@@ -101,7 +116,7 @@ export function EmployerOnboarding({
             </Button>
           </div>
         </form>
-      </motion.div>
+      </div>
     </Card>
   )
 }
