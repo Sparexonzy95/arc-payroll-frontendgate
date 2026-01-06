@@ -46,6 +46,29 @@ const UI = {
   shadow: '0 18px 48px rgba(2, 6, 23, 0.10)',
 }
 
+
+const PRIMARY_BTN = {
+  background: '#0c2b51',
+  border: '1px solid #0c2b51',
+  color: '#ffffff',
+}
+
+const SECONDARY_BTN = {
+  background: 'transparent',
+  border: '1px solid rgba(12,43,81,0.35)',
+  color: '#0c2b51',
+}
+
+const GHOST_BTN = {
+  background: 'transparent',
+  border: 'none',
+  color: '#475569',
+}
+
+const BANNER_GRADIENT = {
+  background: 'linear-gradient(180deg, #0a2648 0%, #0c2b51 50%, #113e75 100%)',
+}
+
 function shortAddr(addr?: string) {
   if (!addr) return '—'
   const a = String(addr)
@@ -73,6 +96,41 @@ function ReqRow({ done, label }: { done: boolean; label: string }) {
       <span>{label}</span>
     </div>
   )
+}
+
+function daysBetween(start: Date, end: Date) {
+  return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function calculateCycles(
+  type: ScheduleType,
+  startAt: string,
+  endAt: string
+): number {
+  if (!startAt || !endAt) return 0
+
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+
+  if (end < start) return 0
+
+  if (type === 'daily') {
+    return daysBetween(start, end) + 1
+  }
+
+  if (type === 'monthly') {
+    return (
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth()) +
+      1
+    )
+  }
+
+  if (type === 'yearly') {
+    return end.getFullYear() - start.getFullYear() + 1
+  }
+
+  return 0
 }
 
 export function PayrollCreateWizard() {
@@ -155,6 +213,16 @@ export function PayrollCreateWizard() {
   const netTotal = employees.reduce((acc, e) => acc + toNum(e.net_human), 0)
   const taxTotal = employees.reduce((acc, e) => acc + toNum(e.tax_human), 0)
   const totalPayout = netTotal + taxTotal
+  const cycles =
+  scheduleMode === 'recurring'
+    ? calculateCycles(scheduleType, startAt, endAt)
+    : 1
+
+const totalFundingRequired =
+  scheduleMode === 'recurring'
+    ? totalPayout * cycles
+    : totalPayout
+
 
   // Mock shows ~0.01 USDC fee, keep a gentle estimate
   const executionFee = 0.01
@@ -163,8 +231,14 @@ export function PayrollCreateWizard() {
   const hasBasics = !!sourceChainId && !!defaultTokenAddress && !!title.trim()
   const hasRecipients = recipientsCount > 0
   const payoutPositive = totalPayout > 0
-  const scheduleSelected =
-    scheduleMode === 'immediate' ? true : scheduleMode === 'scheduled' ? !!startAt : scheduleMode === 'recurring' ? true : false
+ const scheduleSelected =
+  scheduleMode === 'immediate'
+    ? true
+    : scheduleMode === 'scheduled'
+    ? !!startAt
+    : scheduleMode === 'recurring'
+    ? !!startAt && !!endAt
+    : false
 
   const scheduleLabel =
     scheduleMode === 'immediate'
@@ -183,26 +257,28 @@ export function PayrollCreateWizard() {
     []
   )
 
-  function syncScheduleMode(next: ScheduleMode) {
-    setScheduleMode(next)
+function syncScheduleMode(next: ScheduleMode) {
+  setScheduleMode(next)
 
-    if (next === 'immediate') {
-      setScheduleType('instant')
-      setStartAt('')
-      setEndAt('')
-      return
-    }
-
-    if (next === 'scheduled') {
-      // one-time but at a future start date
-      setScheduleType('instant')
-      return
-    }
-
-    // recurring
-    // default to monthly (you can change later)
-    setScheduleType('monthly')
+  if (next === 'immediate') {
+    setScheduleType('instant')
+    setStartAt('')
+    setEndAt('')
+    return
   }
+
+  if (next === 'scheduled') {
+    setScheduleType('instant')
+    setEndAt('')
+    return
+  }
+
+  // ✅ recurring: only set default if coming from instant
+  setScheduleType((prev) =>
+    prev === 'instant' ? 'monthly' : prev
+  )
+}
+
 
   function handleNext() {
     if (step === 1) {
@@ -232,7 +308,18 @@ export function PayrollCreateWizard() {
     if (!isWalletConnected || !activeEmployerId) {
       return toast.error('Connect wallet & employer first')
     }
+      if (scheduleMode === 'recurring' && (!startAt || !endAt)) {
+    return toast.error('Recurring payroll requires start and end dates')
+  }
+     if (scheduleMode === 'recurring') {
+  if (!startAt || !endAt) {
+    return toast.error('Recurring payroll requires start and end dates')
+  }
 
+  if (new Date(endAt) < new Date(startAt)) {
+    return toast.error('End date cannot be earlier than start date')
+  }
+}
     const startIso =
       scheduleMode === 'immediate'
         ? new Date().toISOString()
@@ -338,10 +425,13 @@ export function PayrollCreateWizard() {
                   key={s.n}
                   className="rounded-[16px] px-4 py-4"
                   style={{
-                    background: active ? `linear-gradient(180deg, rgba(14,42,85,0.85) 0%, rgba(14,42,85,0.55) 100%)` : UI.card,
-                    border: `1px solid ${active ? 'rgba(255,255,255,0.10)' : UI.borderSoft}`,
-                    boxShadow: active ? '0 18px 38px rgba(2, 6, 23, 0.18)' : 'none',
-                  }}
+ background: active
+  ? 'linear-gradient(180deg, rgba(12,43,81,0.65) 0%, rgba(12,43,81,0.45) 100%)'
+  : UI.card,
+border: `1px solid ${active ? 'rgba(255,255,255,0.10)' : UI.borderSoft}`,
+boxShadow: active ? '0 8px 20px rgba(12,43,81,0.18)' : 'none',
+
+}}
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -412,22 +502,27 @@ export function PayrollCreateWizard() {
                   {/* Step 2: Add recipient button under subtitle (like mock) */}
                   {step === 2 && (
                     <div className="mt-4">
-                      <Button size="sm" className="gap-2 rounded-full h-9 px-5" onClick={addEmployee}>
-                        <IconPlus size={18} />
-                        Add recipient
-                      </Button>
+                     <Button
+  size="sm"
+  className="gap-2 rounded-full h-9 px-5"
+  style={PRIMARY_BTN}
+  onClick={addEmployee}
+>
+  <IconPlus size={18} />
+  Add recipient
+</Button>
                     </div>
                   )}
                 </div>
 
                 <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => navigate('/dashboard?tab=payrolls')}
-                  className="h-9 px-4 rounded-[10px]"
-                >
-                  Cancel setup
-                </Button>
+  size="sm"
+  className="h-9 px-4 rounded-[10px]"
+  style={GHOST_BTN}
+  onClick={() => navigate('/dashboard?tab=payrolls')}
+>
+  Cancel setup
+</Button>
               </div>
             </div>
 
@@ -702,208 +797,383 @@ export function PayrollCreateWizard() {
                   STEP 3 (Schedule)
                  ========================= */}
               {step === 3 && (
-                <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-                  {/* LEFT */}
-                  <div className="space-y-4">
-                    <div className="text-[18px] font-semibold" style={{ color: UI.text }}>
-                      Execution Schedule
-                    </div>
+  <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    {/* LEFT */}
+    <div className="space-y-4">
+      <div className="text-[18px] font-semibold" style={{ color: UI.text }}>
+        Execution Schedule
+      </div>
 
-                    <div className="space-y-3">
-                      <button
-                        type="button"
-                        onClick={() => syncScheduleMode('immediate')}
-                        className="w-full text-left rounded-[14px] p-4"
-                        style={{
-                          border: `1px solid ${UI.borderSoft}`,
-                          background: scheduleMode === 'immediate' ? 'rgba(37,99,235,0.06)' : UI.card,
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="mt-1">
-                            <IconBolt size={18} style={{ color: scheduleMode === 'immediate' ? '#2563EB' : UI.muted }} />
-                          </span>
-                          <div>
-                            <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
-                              Immediate dispatch
-                            </div>
-                            <div className="text-[13px]" style={{ color: UI.subtext }}>
-                              Dispatch immediately once payroll is created
-                            </div>
-                          </div>
-                        </div>
-                      </button>
+      <div className="space-y-3">
+        {/* IMMEDIATE */}
+       <div
+  role="button"
+  tabIndex={0}
+  onClick={() => syncScheduleMode('immediate')}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      syncScheduleMode('immediate')
+    }
+  }}
+  className="w-full cursor-pointer text-left rounded-[14px] p-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+  style={{
+    border: `1px solid ${
+      scheduleMode === 'immediate'
+        ? 'rgba(12,43,81,0.18)'
+        : UI.borderSoft
+    }`,
+    background:
+      scheduleMode === 'immediate'
+        ? 'rgba(12,43,81,0.08)'
+        : UI.card,
+  }}
+>
+          <div className="flex items-start gap-3">
+            <span className="mt-1">
+              <IconBolt
+                size={18}
+                style={{
+                  color:
+                    scheduleMode === 'immediate'
+                      ? '#0c2b51'
+                      : UI.muted,
+                }}
+              />
+            </span>
+            <div>
+              <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
+                Immediate dispatch
+              </div>
+              <div className="text-[13px]" style={{ color: UI.subtext }}>
+                Dispatch immediately once payroll is created
+              </div>
+            </div>
+          </div>
+        
 
-                      <button
-                        type="button"
-                        onClick={() => syncScheduleMode('scheduled')}
-                        className="w-full text-left rounded-[14px] p-4"
-                        style={{
-                          border: `1px solid ${UI.borderSoft}`,
-                          background: scheduleMode === 'scheduled' ? 'rgba(37,99,235,0.06)' : UI.card,
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="mt-1">
-                            <IconCalendar size={18} style={{ color: scheduleMode === 'scheduled' ? '#2563EB' : UI.muted }} />
-                          </span>
-                          <div>
-                            <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
-                              Scheduled
-                            </div>
-                            <div className="text-[13px]" style={{ color: UI.subtext }}>
-                              Run payroll at a future date
-                            </div>
+        {/* SCHEDULED */}
+        <div
+  role="button"
+  tabIndex={0}
+  onClick={() => syncScheduleMode('scheduled')}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      syncScheduleMode('scheduled')
+    }
+  }}
+  className="w-full cursor-pointer text-left rounded-[14px] p-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+  style={{
+    border: `1px solid ${
+      scheduleMode === 'scheduled'
+        ? 'rgba(12,43,81,0.18)'
+        : UI.borderSoft
+    }`,
+    background:
+      scheduleMode === 'scheduled'
+        ? 'rgba(12,43,81,0.08)'
+        : UI.card,
+  }}
+>
 
-                            {scheduleMode === 'scheduled' && (
-                              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                <div className="space-y-2">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Start date
-                                  </label>
-                                  <Input type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
-                                </div>
+          <div className="flex items-start gap-3">
+            <span className="mt-1">
+              <IconCalendar
+                size={18}
+                style={{
+                  color:
+                    scheduleMode === 'scheduled'
+                      ? '#0c2b51'
+                      : UI.muted,
+                }}
+              />
+            </span>
+            <div>
+              <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
+                Scheduled
+              </div>
+              <div className="text-[13px]" style={{ color: UI.subtext }}>
+                Run payroll at a future date
+              </div>
 
-                                <div className="space-y-2">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Time
-                                  </label>
-                                  <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => syncScheduleMode('recurring')}
-                        className="w-full text-left rounded-[14px] p-4"
-                        style={{
-                          border: `1px solid ${UI.borderSoft}`,
-                          background: scheduleMode === 'recurring' ? 'rgba(37,99,235,0.06)' : UI.card,
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="mt-1">
-                            <IconRepeat size={18} style={{ color: scheduleMode === 'recurring' ? '#2563EB' : UI.muted }} />
-                          </span>
-                          <div className="w-full">
-                            <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
-                              Recurring
-                            </div>
-                            <div className="text-[13px]" style={{ color: UI.subtext }}>
-                              Automatically repeat on a fixed cadence
-                            </div>
-
-                            {scheduleMode === 'recurring' && (
-                              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                                <div className="space-y-2 sm:col-span-1">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Cadence
-                                  </label>
-                                  <Select value={scheduleType} onChange={(e) => setScheduleType(e.target.value as ScheduleType)}>
-                                    <option value="daily">Daily</option>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="yearly">Yearly</option>
-                                  </Select>
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-1">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Time
-                                  </label>
-                                  <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-1">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Day
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    max={31}
-                                    value={dayOfMonth === '' ? '' : String(dayOfMonth)}
-                                    onChange={(e) => setDayOfMonth(e.target.value ? Number(e.target.value) : '')}
-                                    placeholder="1"
-                                    disabled={scheduleType === 'daily'}
-                                  />
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-2">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    Start date
-                                  </label>
-                                  <Input type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
-                                </div>
-
-                                <div className="space-y-2 sm:col-span-1">
-                                  <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
-                                    End date (optional)
-                                  </label>
-                                  <Input type="date" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Helper note bar like mock */}
-                      <div
-                        className="rounded-[12px] px-4 py-3 text-[13px]"
-                        style={{
-                          background: 'rgba(37,99,235,0.06)',
-                          border: `1px solid rgba(37,99,235,0.10)`,
-                          color: UI.subtext,
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <IconClock size={16} style={{ color: '#2563EB' }} />
-                          {scheduleMode === 'immediate' ? (
-                            <span>
-                              Payroll will be dispatched <b>immediately</b> after creation.
-                            </span>
-                          ) : scheduleMode === 'scheduled' ? (
-                            <span>
-                              Payroll will run on <b>{startAt ? startAt : 'your selected date'}</b>.
-                            </span>
-                          ) : (
-                            <span>Payroll will repeat automatically based on your cadence settings.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+              {scheduleMode === 'scheduled' && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+                      Start date
+                    </label>
+                    <Input
+                      type="date"
+                      value={startAt}
+                      onChange={(e) => setStartAt(e.target.value)}
+                    />
                   </div>
 
-                  {/* RIGHT: Funding & Execution */}
-                  <div className="space-y-4">
-                    <div className="rounded-[16px] p-5" style={{ background: UI.card, border: `1px solid ${UI.borderSoft}`, boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)' }}>
-                      <div className="text-[16px] font-semibold" style={{ color: UI.text }}>
-                        Funding & Execution
-                      </div>
+                  <div className="space-y-2">
+                    <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+                      Time
+                    </label>
+                    <Input
+                      type="time"
+                      value={timeOfDay}
+                      onChange={(e) => setTimeOfDay(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        
 
-                      <div className="mt-4 space-y-3 text-[14px]" style={{ color: UI.subtext }}>
-                        <div className="flex justify-between">
-                          <span>Wallet balance:</span>
-                          <span style={{ color: UI.text, fontWeight: 700 }}>
-                            — {symbol}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Total payout:</span>
-                          <span style={{ color: UI.text, fontWeight: 700 }}>
-                            {fmt2(totalPayout)} {symbol}
-                          </span>
-                        </div>
-                        <div className="flex justify-between" style={{ borderBottom: `1px solid ${UI.borderSoft}`, paddingBottom: 10 }}>
-                          <span>Execution fee:</span>
-                          <span style={{ color: UI.text, fontWeight: 700 }}>
-                            ~ {fmt2(executionFee)} {symbol}
-                          </span>
-                        </div>
+        {/* RECURRING */}
+    <div
+  className="w-full text-left rounded-[14px] p-4"
+  style={{
+    border: `1px solid ${
+      scheduleMode === 'recurring'
+        ? 'rgba(12,43,81,0.18)'
+        : UI.borderSoft
+    }`,
+    background:
+      scheduleMode === 'recurring'
+        ? 'rgba(12,43,81,0.08)'
+        : UI.card,
+  }}
+>
+
+          <div
+  className="flex items-start gap-3 cursor-pointer"
+  onClick={() => syncScheduleMode('recurring')}
+>
+            <span className="mt-1">
+              <IconRepeat
+                size={18}
+                style={{
+                  color:
+                    scheduleMode === 'recurring'
+                      ? '#0c2b51'
+                      : UI.muted,
+                }}
+              />
+            </span>
+
+            <div className="w-full">
+              <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
+                Recurring
+              </div>
+              <div className="text-[13px]" style={{ color: UI.subtext }}>
+                Automatically repeat on a fixed cadence
+              </div>
+
+             {scheduleMode === 'recurring' && (
+  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+    <div className="space-y-2">
+      <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+        Cadence
+      </label>
+      <Select
+        value={scheduleType}
+        onChange={(e) =>
+          setScheduleType(e.target.value as ScheduleType)
+        }
+      >
+        <option value="daily">Daily</option>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </Select>
+    </div>
+
+    <div className="space-y-2">
+      <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+        Time
+      </label>
+      <Input
+        type="time"
+        value={timeOfDay}
+        onChange={(e) => setTimeOfDay(e.target.value)}
+      />
+    </div>
+
+    <div className="space-y-2">
+      <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+        Day
+      </label>
+      <Input
+        type="number"
+        min={1}
+        max={31}
+        disabled={scheduleType === 'daily'}
+        value={dayOfMonth === '' ? '' : String(dayOfMonth)}
+        onChange={(e) =>
+          setDayOfMonth(e.target.value ? Number(e.target.value) : '')
+        }
+      />
+    </div>
+
+    {/* ✅ REQUIRED */}
+    <div className="space-y-2 sm:col-span-2">
+      <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+        Start date
+      </label>
+      <Input
+        type="date"
+        value={startAt}
+        onChange={(e) => setStartAt(e.target.value)}
+      />
+    </div>
+
+    {/* ✅ REQUIRED */}
+    <div className="space-y-2">
+      <label className="text-[12px] font-medium" style={{ color: UI.subtext }}>
+        End date
+      </label>
+      <Input
+        type="date"
+        value={endAt}
+        onChange={(e) => setEndAt(e.target.value)}
+      />
+    </div>
+  </div>
+)}
+
+            </div>
+          </div>
+      
+
+        {/* HELPER NOTE */}
+        <div
+          className="rounded-[12px] px-4 py-3 text-[13px]"
+          style={{
+            background: 'rgba(12,43,81,0.06)',
+            border: '1px solid rgba(12,43,81,0.14)',
+            color: UI.subtext,
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <IconClock size={16} style={{ color: '#0c2b51' }} />
+            {scheduleMode === 'immediate' ? (
+              <span>
+                Payroll will be dispatched <b>immediately</b> after creation.
+              </span>
+            ) : scheduleMode === 'scheduled' ? (
+              <span>
+                Payroll will run on <b>{startAt || 'your selected date'}</b>.
+              </span>
+            ) : (
+              <span>
+                Payroll will repeat automatically based on your cadence settings.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+                  {/* RIGHT: Funding & Execution */}
+                 <div className="space-y-4">
+  <div
+    className="rounded-[16px] p-5"
+    style={{
+      background: UI.card,
+      border: `1px solid ${UI.borderSoft}`,
+      boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)',
+    }}
+  >
+    <div className="text-[16px] font-semibold" style={{ color: UI.text }}>
+      Funding & Execution
+    </div>
+
+    <div className="mt-4 space-y-3 text-[14px]" style={{ color: UI.subtext }}>
+      {/* Wallet balance */}
+      <div className="flex justify-between">
+        <span>Wallet balance:</span>
+        <span style={{ color: UI.text, fontWeight: 700 }}>
+          — {symbol}
+        </span>
+      </div>
+
+      {/* Per-cycle payout */}
+      <div className="flex justify-between">
+        <span>
+          {scheduleMode === 'recurring' ? 'Payout per cycle:' : 'Total payout:'}
+        </span>
+        <span style={{ color: UI.text, fontWeight: 700 }}>
+          {fmt2(totalPayout)} {symbol}
+        </span>
+      </div>
+
+      {/* Execution fee */}
+      <div
+        className="flex justify-between"
+        style={{ borderBottom: `1px solid ${UI.borderSoft}`, paddingBottom: 10 }}
+      >
+        <span>Execution fee:</span>
+        <span style={{ color: UI.text, fontWeight: 700 }}>
+          ~ {fmt2(executionFee)} {symbol}
+        </span>
+      </div>
+
+      {/* 🔁 Recurring details */}
+      {scheduleMode === 'recurring' && (
+        <>
+          <div className="flex justify-between pt-2">
+            <span>Number of cycles:</span>
+            <span style={{ color: UI.text, fontWeight: 700 }}>
+              {cycles || '—'}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span>Total funding required:</span>
+            <span
+              style={{
+                color: '#0c2b51',
+                fontWeight: 800,
+              }}
+            >
+              {cycles > 0
+                ? `${fmt2(totalFundingRequired)} ${symbol}`
+                : '—'}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* ⚠️ Date validation warning */}
+      {scheduleMode === 'recurring' &&
+        startAt &&
+        endAt &&
+        new Date(endAt) < new Date(startAt) && (
+          <div
+            className="mt-3 rounded-[12px] px-3 py-2 text-[13px]"
+            style={{
+              background: 'rgba(220,38,38,0.06)',
+              border: '1px solid rgba(220,38,38,0.18)',
+              color: '#DC2626',
+              fontWeight: 600,
+            }}
+          >
+            End date cannot be earlier than start date
+          </div>
+        )}
+
+      {/* ✅ Funding status */}
+      {scheduleMode !== 'recurring' ||
+      (scheduleMode === 'recurring' && cycles > 0) ? (
+        <div
+          className="pt-3 flex items-center justify-center gap-2"
+          style={{ color: '#16A34A', fontWeight: 700 }}
+        >
+          <IconCheck size={18} />
+          Funding calculable
+        </div>
+      ) : null}
+    </div>
+  </div>
+</div>
+
 
                         <div className="pt-2 flex items-center justify-center gap-2" style={{ color: '#16A34A', fontWeight: 700 }}>
                           <IconCheck size={18} />
@@ -1038,14 +1308,20 @@ export function PayrollCreateWizard() {
 
               {/* Footer actions (matches mock: left Back, right Next/Create) */}
               <div className="mt-8 flex items-center justify-between">
-                <Button size="md" variant="secondary" className="rounded-full px-8" disabled={step === 1} onClick={handleBack}>
-                  Back
-                </Button>
-
+                <Button
+  size="md"
+  className="rounded-full px-8"
+  style={SECONDARY_BTN}
+  disabled={step === 1}
+  onClick={handleBack}
+>
+  Back
+</Button>
                 {step < 4 ? (
                   <Button
                     size="md"
                     className="px-10 rounded-full"
+                    style={PRIMARY_BTN}
                     onClick={handleNext}
                     disabled={
                       (step === 1 && !hasBasics) ||
@@ -1057,15 +1333,15 @@ export function PayrollCreateWizard() {
                   </Button>
                 ) : (
                   <Button
-                    size="md"
-                    className="px-10 rounded-full"
-                    variant="primary"
-                    loading={createPayroll.isPending}
-                    onClick={handleSubmit}
-                    disabled={!hasBasics || !hasRecipients || !payoutPositive || !scheduleSelected}
-                  >
-                    Create payroll
-                  </Button>
+  size="md"
+  className="px-10 rounded-full"
+  style={PRIMARY_BTN}
+  loading={createPayroll.isPending}
+  onClick={handleSubmit}
+  disabled={!hasBasics || !hasRecipients || !payoutPositive || !scheduleSelected}
+>
+  Create payroll
+</Button>
                 )}
               </div>
             </div>

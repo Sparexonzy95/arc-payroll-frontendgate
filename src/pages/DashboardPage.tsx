@@ -252,25 +252,26 @@ export function DashboardPage() {
                     className="flex items-center justify-between rounded-[14px] px-3 py-2"
                     style={{ background: TOKENS.card, border: `1px solid ${TOKENS.border}` }}
                   >
-                    <button
-                      type="button"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setMobileNavOpen(true)
-                      }}
-                      className="relative z-[70] inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium"
-                      style={{
-                        background: 'rgba(15,23,42,0.03)',
-                        border: `1px solid ${TOKENS.border}`,
-                        color: TOKENS.textPrimary,
-                      }}
-                      aria-label="Open menu"
-                    >
+                                          <button
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setMobileNavOpen(true)
+                        }}
+                        className="
+                          btn-secondary
+                          relative z-[70]
+                          inline-flex items-center gap-2
+                          px-3 py-2
+                          text-[13px]
+                        "
+                        aria-label="Open menu"
+                      >
                       <IconMenu2 size={18} stroke={2} />
                       Menu
                     </button>

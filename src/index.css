@@ -133,3 +133,157 @@
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='noStitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
 }
+
+
+
+/* ==================================================
+   DASHBOARD ACTION SYSTEM (FINAL)
+   ================================================== */
+
+/* ---------- Primary action ---------- */
+.btn-primary {
+  background-color: var(--arc-primary);
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-400);
+}
+
+.btn-primary:focus-visible {
+  box-shadow: 0 0 0 3px var(--arc-focus-ring);
+}
+
+/* ---------- Secondary / outline ---------- */
+.btn-secondary {
+  background: transparent;
+  color: var(--arc-primary);
+  border: 1px solid rgba(26, 91, 171, 0.35);
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(26, 91, 171, 0.08);
+}
+
+/* ---------- Highlights (NOT buttons) ---------- */
+.highlight {
+  background-color: rgba(26, 91, 171, 0.08);
+  color: var(--arc-primary);
+  border-radius: 8px;
+}
+
+.text-highlight {
+  color: var(--arc-primary);
+  font-weight: 500;
+}
+
+/* ---------- Dashboard banner ---------- */
+.dashboard-banner {
+  background-color: var(--arc-bg-card);
+  border: 1px solid var(--arc-divider);
+  border-radius: var(--arc-radius-lg);
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-banner-badge {
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(26, 91, 171, 0.08);
+  color: var(--arc-primary);
+}
+
+.dashboard-banner-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--arc-text-primary);
+}
+
+.dashboard-banner-subline {
+  font-size: 13px;
+  color: var(--arc-text-secondary);
+}
+
+/* ===============================
+   DASHBOARD BANNER TOKENS
+   =============================== */
+
+:root {
+  /* Banner background */
+  --arc-banner-bg: linear-gradient(
+    135deg,
+    #0c2b51 0%,
+    #113e75 55%,
+    #0c2b51 100%
+  );
+
+  --arc-banner-bg-muted: linear-gradient(
+    135deg,
+    #0f1a33 0%,
+    #142246 55%,
+    #0f1a33 100%
+  );
+
+  --arc-banner-border: rgba(255,255,255,0.08);
+  --arc-banner-border-muted: rgba(255,255,255,0.06);
+
+  --arc-banner-text-primary: #ffffff;
+  --arc-banner-text-secondary: rgba(255,255,255,0.7);
+  --arc-banner-text-muted: rgba(255,255,255,0.5);
+
+  /* Pills / badges */
+  --arc-banner-pill-bg: rgba(255,255,255,0.10);
+  --arc-banner-pill-border: rgba(255,255,255,0.12);
+
+  --arc-banner-pill-bg-muted: rgba(255,255,255,0.06);
+  --arc-banner-pill-border-muted: rgba(255,255,255,0.08);
+}
+
+
+/* ===============================
+   DASHBOARD BANNER UTILITIES
+   =============================== */
+
+.banner-active {
+  background: var(--arc-banner-bg);
+  border: 1px solid var(--arc-banner-border);
+  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.22);
+}
+
+.banner-muted {
+  background: var(--arc-banner-bg-muted);
+  border: 1px solid var(--arc-banner-border-muted);
+}
+
+.banner-glow {
+  background: radial-gradient(
+    900px 220px at 25% 25%,
+    rgba(255,255,255,0.18),
+    transparent 60%
+  );
+  opacity: 0.6;
+}
+
+.banner-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--arc-banner-pill-bg);
+  border: 1px solid var(--arc-banner-pill-border);
+  color: #fff;
+}

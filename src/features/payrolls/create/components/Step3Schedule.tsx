@@ -28,6 +28,7 @@ export function Step3Schedule({
   symbol,
   totalPayout,
   executionFee,
+  requiredFunding,
 
   // ✅ wallet (from PayrollCreateWizard)
   walletTokenBalance,
@@ -50,6 +51,7 @@ export function Step3Schedule({
   symbol: string
   totalPayout: number
   executionFee: number
+  requiredFunding: number
 
   // ✅ wallet
   walletTokenBalance: number | null
@@ -57,10 +59,10 @@ export function Step3Schedule({
   walletCanQuery: boolean
   walletError: string | null
 }) {
-  const required = totalPayout + executionFee
-
+  
+  
   const fundsSufficient =
-    walletTokenBalance !== null && walletTokenBalance >= required
+    walletTokenBalance !== null && walletTokenBalance >= requiredFunding
 
   const statusText = walletLoading
     ? 'Checking balance…'
@@ -182,29 +184,30 @@ export function Step3Schedule({
           </button>
 
           {/* Recurring */}
-          <button
-            type="button"
-            onClick={() => onSetMode('recurring')}
-            className="w-full text-left rounded-[14px] p-4"
-            style={{
-              border: `1px solid ${UI.borderSoft}`,
-              background:
-                scheduleMode === 'recurring'
-                  ? 'rgba(37,99,235,0.06)'
-                  : UI.card,
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <IconRepeat
-                size={18}
-                style={{
-                  color:
-                    scheduleMode === 'recurring'
-                      ? '#2563EB'
-                      : UI.muted,
-                }}
-              />
-              <div className="w-full">
+        <div
+  className="w-full text-left rounded-[14px] p-4"
+  style={{
+    border: `1px solid ${UI.borderSoft}`,
+    background:
+      scheduleMode === 'recurring'
+        ? 'rgba(37,99,235,0.06)'
+        : UI.card,
+  }}
+>
+            <div
+  className="flex items-start gap-3 cursor-pointer"
+  onClick={() => onSetMode('recurring')}
+>
+  <IconRepeat
+    size={18}
+    style={{
+      color:
+        scheduleMode === 'recurring'
+          ? '#2563EB'
+          : UI.muted,
+    }}
+  />
+  <div className="w-full">
                 <div className="text-[15px] font-semibold" style={{ color: UI.text }}>
                   Recurring
                 </div>
@@ -213,46 +216,78 @@ export function Step3Schedule({
                 </div>
 
                 {scheduleMode === 'recurring' && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <label className="text-[12px]" style={{ color: UI.subtext }}>
-                        Cadence
-                      </label>
-                      <Select
-                        value={scheduleType}
-                        onChange={(e) => setScheduleType(e.target.value as ScheduleType)}
-                      >
-                        <option value="daily">Daily</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                      </Select>
-                    </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+  {/* Start date */}
+  <div className="space-y-2">
+    <label className="text-[12px]" style={{ color: UI.subtext }}>
+      Start date
+    </label>
+    <Input
+      type="date"
+      value={startAt}
+      onChange={(e) => setStartAt(e.target.value)}
+    />
+  </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[12px]" style={{ color: UI.subtext }}>
-                        Time
-                      </label>
-                      <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
-                    </div>
+  {/* End date */}
+  <div className="space-y-2">
+    <label className="text-[12px]" style={{ color: UI.subtext }}>
+      End date
+    </label>
+    <Input
+      type="date"
+      value={endAt}
+      onChange={(e) => setEndAt(e.target.value)}
+    />
+  </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[12px]" style={{ color: UI.subtext }}>
-                        Day
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={dayOfMonth === '' ? '' : String(dayOfMonth)}
-                        onChange={(e) => setDayOfMonth(e.target.value ? Number(e.target.value) : '')}
-                        disabled={scheduleType === 'daily'}
-                      />
-                    </div>
-                  </div>
+  {/* Cadence */}
+  <div className="space-y-2">
+    <label className="text-[12px]" style={{ color: UI.subtext }}>
+      Cadence
+    </label>
+    <Select
+      value={scheduleType}
+      onChange={(e) => setScheduleType(e.target.value as ScheduleType)}
+    >
+      <option value="daily">Daily</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </Select>
+  </div>
+
+  {/* Time */}
+  <div className="space-y-2">
+    <label className="text-[12px]" style={{ color: UI.subtext }}>
+      Time
+    </label>
+    <Input
+      type="time"
+      value={timeOfDay}
+      onChange={(e) => setTimeOfDay(e.target.value)}
+    />
+  </div>
+
+  {/* Day (MONTHLY ONLY) */}
+  <div className="space-y-2">
+    <label className="text-[12px]" style={{ color: UI.subtext }}>
+      Day
+    </label>
+    <Input
+      type="number"
+      min={1}
+      max={31}
+      value={dayOfMonth === '' ? '' : String(dayOfMonth)}
+      onChange={(e) => setDayOfMonth(e.target.value ? Number(e.target.value) : '')}
+      disabled={scheduleType !== 'monthly'}
+    />
+  </div>
+</div>
+
                 )}
               </div>
             </div>
-          </button>
+          </div>
 
           {/* Info */}
           <div
@@ -319,7 +354,7 @@ export function Step3Schedule({
             <div className="flex justify-between" style={{ borderBottom: `1px solid ${UI.borderSoft}`, paddingBottom: 10 }}>
               <span>Required:</span>
               <span style={{ color: UI.text, fontWeight: 700 }}>
-                {fmt2(required)} {symbol}
+               {fmt2(requiredFunding)} {symbol}
               </span>
             </div>
 

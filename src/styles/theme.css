@@ -2,34 +2,53 @@
 @import "tailwindcss";
 
 :root {
-  /* -----------------------------
-     Arcflow Dashboard tokens (SOURCE OF TRUTH)
-     ----------------------------- */
-  --arc-bg-base: #F7F9FC;
-  --arc-bg-card: #FFFFFF;
-  --arc-bg-sidebar: #F3F5F9;
-  --arc-bg-navbar: #0E2A55;
+  /* ==================================================
+     ARCFLOW DASHBOARD TOKENS (SOURCE OF TRUTH)
+     ================================================== */
 
-  --arc-primary: #0B3A8A;
-  --arc-primary-muted: rgba(11,58,138,0.08);
+  /* ---- Brand scale (shared with landing) ---- */
+  --brand-50:  #e3eefa;
+  --brand-100: #dae8f9;
+  --brand-200: #92bbee;
+  --brand-300: #6da5e9;
+  --brand-400: #4189e1;
+  --brand-500: #1a5bab;
+  --brand-600: #164c90;
+  --brand-700: #0e305a;
+  --brand-800: #0c2b51;
 
-  --arc-text-primary: #0F172A;
+  /* ---- Dashboard surfaces ---- */
+  --arc-bg-base:    var(--brand-50);   /* main canvas */
+  --arc-bg-card:    #ffffff;           /* cards */
+  --arc-bg-sidebar: #f1f5fb;           /* sidebar */
+  --arc-bg-navbar:  var(--brand-800);  /* top bar */
+
+  /* ---- Primary actions ---- */
+  --arc-primary:        var(--brand-500);
+  --arc-primary-muted:  rgba(26, 91, 171, 0.08);
+
+  /* ---- Text ---- */
+  --arc-text-primary:   #0f172a;
   --arc-text-secondary: #475569;
-  --arc-text-muted: #94A3B8;
+  --arc-text-muted:     #94a3b8;
 
-  --arc-success: #16A34A;
-  --arc-info: #2563EB;
-  --arc-warning: #F59E0B;
-  --arc-danger: #DC2626;
+  /* ---- Status colors ---- */
+  --arc-success: #16a34a;
+  --arc-info:    var(--brand-400);
+  --arc-warning: #f59e0b;
+  --arc-danger:  #dc2626;
 
-  --arc-divider: rgba(15,23,42,0.06);
-  --arc-border: rgba(15,23,42,0.08);
+  /* ---- Borders & dividers ---- */
+  --arc-divider: rgba(15, 23, 42, 0.06);
+  --arc-border:  rgba(15, 23, 42, 0.08);
 
+  /* ---- Radius ---- */
   --arc-radius-sm: 6px;
   --arc-radius-md: 10px;
   --arc-radius-lg: 14px;
   --arc-radius-xl: 18px;
 
+  /* ---- Typography ---- */
   --arc-font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --arc-font-size-xs: 12px;
   --arc-font-size-sm: 14px;
@@ -37,24 +56,16 @@
   --arc-font-size-lg: 18px;
   --arc-font-size-xl: 22px;
 
-  --arc-focus-ring: rgba(37, 99, 235, 0.45);
+  /* ---- Focus ---- */
+  --arc-focus-ring: rgba(65, 137, 225, 0.45);
 
-  /* ----------------------------------------
-     LEGACY TOKENS (COMPATIBILITY)
-     IMPORTANT: remap them to LIGHT system
-     ---------------------------------------- */
-  --brand-50:  #e3eefa;
-  --brand-200: #92bbee;
-  --brand-400: #4189e1;
-  --brand-500: #1a5bab;
-  --brand-600: #164c90;
-  --brand-700: #0e305a;
-  --brand-800: #0c2b51;
+  /* ==================================================
+     LEGACY TOKENS (COMPATIBILITY — DO NOT REMOVE)
+     ================================================== */
 
-  /* these used to be dark, now mapped to Arcflow light */
   --bg-body:      var(--arc-bg-base);
   --bg-elevated:  var(--arc-bg-card);
-  --bg-sunken:    #F1F5F9;
+  --bg-sunken:    #f1f5fb;
 
   --border-subtle: var(--arc-divider);
   --border-strong: var(--arc-border);
@@ -73,11 +84,13 @@
   --font-heading: var(--arc-font);
   --font-body:    var(--arc-font);
 
-  /* stop browser auto-darkening controls */
+  /* Prevent browser auto dark-mode overrides */
   color-scheme: light;
 }
 
-/* ✅ GLOBAL CANVAS FIX: force light background everywhere */
+/* ==================================================
+   GLOBAL CANVAS
+   ================================================== */
 html,
 body,
 #root {
@@ -96,7 +109,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* --------- Compatibility utility classes (mapped to Arcflow) --------- */
+/* ==================================================
+   COMPATIBILITY UTILITIES
+   ================================================== */
 
 /* Fonts */
 .font-heading {
@@ -107,15 +122,15 @@ body {
   font-family: var(--arc-font);
 }
 
-/* Text colors */
+/* Text */
 .text-ink-primary { color: var(--arc-text-primary); }
 .text-ink-muted   { color: var(--arc-text-muted); }
 .text-ink-soft    { color: var(--arc-text-secondary); }
 
-/* Background surfaces */
+/* Surfaces */
 .bg-surface-body     { background-color: var(--arc-bg-base); }
 .bg-surface-elevated { background-color: var(--arc-bg-card); }
-.bg-surface-sunken   { background-color: #F1F5F9; }
+.bg-surface-sunken   { background-color: #f1f5fb; }
 
 /* Borders */
 .border-subtle { border-color: var(--arc-divider); }
@@ -124,14 +139,14 @@ body {
 /* Shadows */
 .shadow-soft { box-shadow: none; }
 
-/* Focus ring helper */
+/* Focus */
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--arc-focus-ring);
 }
 
-/* Skeleton animation (used by Skeleton.tsx) */
+/* Skeleton animation */
 @keyframes arcflow-skeleton {
-  0% { background-position: 200% 0; }
+  0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }

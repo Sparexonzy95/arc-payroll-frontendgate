@@ -17,19 +17,25 @@ type Props = {
 }
 
 const UI = {
-  sidebarBg: '#EEF2F7',
+  /* surfaces */
+  sidebarBg: '#EEF2F7', // stays light
   border: 'rgba(15,23,42,0.08)',
+
+  /* text */
   text: '#0F172A',
   muted: '#64748B',
   faint: '#94A3B8',
 
+  /* cards */
   itemBg: 'rgba(255,255,255,0.72)',
-  itemHoverBg: 'rgba(255,255,255,0.90)',
+  itemHoverBg: 'rgba(255,255,255,0.92)',
 
-  activeBg: '#0B3A8A',
+  /* ACTIVE (aligned with base color) */
+  activeBg: '#0c2b51',          // ✅ BASE COLOR
   activeText: '#FFFFFF',
 
-  iconBlue: '#0B3A8A',
+  /* icons */
+  iconBlue: '#0d305a',          // one step lighter than base
 }
 
 const ICON = { size: 20, stroke: 1.6 }
@@ -57,22 +63,27 @@ function itemClass() {
 
 function iconBoxClass(active: boolean) {
   return cx(
-    'h-12 w-12',
-    'rounded-[16px]',
-    'flex items-center justify-center',
-    'border',
-    active ? 'bg-white/10 border-white/15' : 'bg-white border-[rgba(15,23,42,0.10)]'
+    'h-12 w-12 rounded-[16px] flex items-center justify-center border',
+    active
+      ? 'bg-white/10 border-white/15'
+      : 'bg-white/70 border-[rgba(15,23,42,0.08)]'
   )
 }
+
 
 function itemStyle(active: boolean) {
   return {
     background: active ? UI.activeBg : UI.itemBg,
-    boxShadow: active ? '0 14px 30px rgba(11,58,138,0.22)' : '0 10px 22px rgba(15,23,42,0.06)',
-    border: active ? '1px solid rgba(255,255,255,0.10)' : `1px solid ${UI.border}`,
+    boxShadow: active
+      ? '0 10px 26px rgba(12,43,81,0.35)'   // base-color shadow
+      : '0 8px 18px rgba(15,23,42,0.06)',
+    border: active
+      ? '1px solid rgba(255,255,255,0.10)'
+      : `1px solid ${UI.border}`,
     color: active ? UI.activeText : UI.text,
   } as const
 }
+
 
 function subtitleColor(active: boolean) {
   return active ? 'rgba(255,255,255,0.72)' : UI.muted
@@ -84,11 +95,18 @@ function iconColor(active: boolean) {
 
 function soonPill(active: boolean) {
   return {
-    background: active ? 'rgba(255,255,255,0.16)' : 'rgba(15,23,42,0.06)',
-    color: active ? 'rgba(255,255,255,0.78)' : UI.muted,
-    border: active ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(15,23,42,0.07)',
+    background: active
+      ? 'rgba(255,255,255,0.14)'
+      : 'rgba(15,23,42,0.06)',
+    color: active
+      ? 'rgba(255,255,255,0.85)'
+      : UI.muted,
+    border: active
+      ? '1px solid rgba(255,255,255,0.18)'
+      : '1px solid rgba(15,23,42,0.08)',
   } as const
 }
+
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (

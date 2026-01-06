@@ -26,9 +26,15 @@ export function StepFooter({
       </Button>
 
       {step < 4 ? (
-        <Button size="md" className="px-10 rounded-full" onClick={onNext} disabled={nextDisabled}>
-          Next
-        </Button>
+        <Button
+  size="md"
+  variant="secondary"
+  className="px-10 rounded-full"
+  onClick={onNext}
+  disabled={nextDisabled}
+>
+  Next
+</Button>
       ) : (
         <Button
           size="md"

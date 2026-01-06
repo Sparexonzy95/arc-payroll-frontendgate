@@ -4,6 +4,7 @@ import { Input } from '../../../../components/ui/Input'
 import { Select } from '../../../../components/ui/Select'
 import { UI } from '../ui'
 import { shortAddr } from '../utils'
+import EurcIcon from '../../../../assets/tokens/eurc.svg'
 import type { TokenDTO, ChainDTO } from '../../../../api/chains'
 import { ReqRow } from './ReqRow'
 import {
@@ -32,29 +33,27 @@ function UsdcSvg({ size = 16 }: { size?: number }) {
   )
 }
 
-function EurcSvg({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <circle cx="32" cy="32" r="32" fill="#1E3A8A" />
-      <circle cx="32" cy="32" r="26" fill="none" stroke="#FFD54A" strokeWidth="3" opacity="0.9" />
-      {Array.from({ length: 8 }).map((_, i) => {
-        const a = (Math.PI * 2 * i) / 8
-        const x = 32 + Math.cos(a) * 20
-        const y = 32 + Math.sin(a) * 20
-        return <circle key={i} cx={x} cy={y} r="1.6" fill="#FFD54A" />
-      })}
-      <path
-        fill="#fff"
-        d="M39.8 22.8c-1.5-1.6-3.6-2.5-6.4-2.5-4.1 0-7.2 2.3-8.5 6.2h-3v2.9h2.4c0 .3 0 .6 0 .9s0 .6 0 .9h-2.4V34h3c1.3 4 4.4 6.2 8.5 6.2 2.8 0 4.9-.9 6.4-2.5l-2.2-2.1c-.9 1-2.2 1.5-4.1 1.5-2.2 0-3.9-1.1-4.8-3.1h7.3v-2.9h-7.9c0-.3 0-.6 0-.9s0-.6 0-.9h7.9v-2.9h-7.3c.9-2 2.6-3.1 4.8-3.1 1.9 0 3.2.5 4.1 1.5l2.2-2.1Z"
-      />
-    </svg>
-  )
-}
+
 
 function TokenIcon({ symbol }: { symbol?: string }) {
   const s = (symbol || '').toUpperCase()
-  if (s === 'USDC') return <UsdcSvg size={16} />
-  if (s === 'EURC') return <EurcSvg size={16} />
+
+  if (s === 'USDC') {
+    return <UsdcSvg size={16} />
+  }
+
+  if (s === 'EURC') {
+    return (
+      <img
+        src={EurcIcon}
+        alt="EURC"
+        width={16}
+        height={16}
+        style={{ display: 'block' }}
+      />
+    )
+  }
+
   return <IconCoin size={16} />
 }
 
@@ -94,6 +93,14 @@ function ContextRow({
   )
 }
 
+// already used everywhere else
+const ACTIVE_BG = 'rgba(12,43,81,0.08)'
+const ACTIVE_BORDER = 'rgba(12,43,81,0.18)'
+const HOVER_BG = 'rgba(12,43,81,0.05)'
+const DEAD_BG = 'rgba(15,23,42,0.03)'
+
+
+
 function TokenDropdown({
   tokens,
   value,
@@ -130,17 +137,20 @@ function TokenDropdown({
   return (
     <div className="relative">
       <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className="w-full rounded-[12px] px-3 py-2 flex items-center justify-between gap-3"
-        style={{
-          background: disabled ? 'rgba(15,23,42,0.03)' : UI.card,
-          border: `1px solid ${UI.borderSoft}`,
-          color: UI.text,
-          opacity: disabled ? 0.6 : 1,
-        }}
-      >
+  type="button"
+  disabled={disabled}
+  onClick={() => setOpen((v) => !v)}
+  className="w-full rounded-[12px] px-3 py-2 flex items-center justify-between gap-3 transition-colors"
+  style={{
+    background: disabled ? DEAD_BG : UI.card,
+    border: `1px solid ${
+      open ? ACTIVE_BORDER : UI.borderSoft
+    }`,
+    boxShadow: open ? '0 8px 20px rgba(12,43,81,0.12)' : 'none',
+    color: UI.text,
+    opacity: disabled ? 0.6 : 1,
+  }}
+>
         <div className="flex items-center gap-2 min-w-0">
           <span
             className="inline-flex h-6 w-6 items-center justify-center rounded-full"
@@ -167,7 +177,7 @@ function TokenDropdown({
           style={{
             background: UI.card,
             border: `1px solid ${UI.borderSoft}`,
-            boxShadow: '0 18px 40px rgba(2, 6, 23, 0.12)',
+            boxShadow: '0 18px 48px rgba(2, 6, 23, 0.16)',
           }}
         >
           <div className="p-3" style={{ borderBottom: `1px solid ${UI.borderSoft}` }}>
@@ -193,16 +203,31 @@ function TokenDropdown({
               </div>
             ) : (
               filtered.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(t.address)
-                    close()
-                  }}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:opacity-90"
-                  style={{ borderTop: `1px solid ${UI.borderSoft}` }}
-                >
+              <button
+  key={t.id}
+  type="button"
+  onClick={() => {
+    onChange(t.address)
+    close()
+  }}
+  className="w-full px-4 py-3 flex items-center justify-between transition-colors"
+  style={{
+    borderTop: `1px solid ${UI.borderSoft}`,
+    background:
+      selected?.address === t.address
+        ? 'rgba(12,43,81,0.08)'
+        : 'transparent',
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.background = 'rgba(12,43,81,0.05)')
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.background =
+      selected?.address === t.address
+        ? 'rgba(12,43,81,0.08)'
+        : 'transparent')
+  }
+>
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       className="inline-flex h-8 w-8 items-center justify-center rounded-full"
@@ -389,7 +414,7 @@ export function Step1Basics({
           <div className="mt-4 space-y-2 text-[13px]" style={{ color: UI.subtext }}>
             <ReqRow done={hasBasics} label="Payroll basics completed" />
             <ReqRow done={false} label="Add at least one employee" />
-            <ReqRow done={false} label="Select start date" />
+            <ReqRow done={false} label="Schedule payroll" />
           </div>
         </div>
       </div>

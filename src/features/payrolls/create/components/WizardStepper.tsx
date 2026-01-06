@@ -33,7 +33,7 @@ export function WizardStepper({
                     : done
                     ? 'rgba(14,42,85,0.12)'
                     : 'rgba(15,23,42,0.06)',
-                  color: active ? 'rgba(255,255,255,0.92)' : UI.text,
+                  color: active ? 'rgba(255,255,255,0.92)' : UI.subtext,
                   border: `1px solid ${active ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)'}`,
                 }}
               >

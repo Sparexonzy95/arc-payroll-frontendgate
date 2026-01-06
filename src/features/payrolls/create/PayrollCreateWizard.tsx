@@ -14,6 +14,7 @@ import { useAccount, useBalance } from 'wagmi'
 import { UI } from './ui'
 import { toNum } from './utils'
 import type { Step, EmployeeRow, ScheduleMode, ScheduleType } from './types'
+import { isAddress } from 'viem'
 
 import { WizardStepper } from './components/WizardStepper'
 import { WizardShell } from './components/WizardShell'
@@ -23,6 +24,10 @@ import { Step1Basics } from './components/Step1Basics'
 import { Step2Recipients } from './components/Step2Recipients'
 import { Step3Schedule } from './components/Step3Schedule'
 import { Step4Review } from './components/Step4Review'
+
+function normalizeAddr(addr: string) {
+  return addr.trim().toLowerCase()
+}
 
 export function PayrollCreateWizard() {
   const navigate = useNavigate()
@@ -120,6 +125,19 @@ export function PayrollCreateWizard() {
       },
     ])
   }
+  function handleCsvImport(rows: Array<{ wallet: string; net?: string; tax?: string }>) {
+  setEmployees((prev) => [
+    ...prev,
+    ...rows.map((r, i) => ({
+      index: prev.length + i,
+      employee_address: r.wallet,
+      token_address: '',
+      net_human: r.net || '',
+      tax_human: r.tax || '',
+      encrypted_ref: '0x',
+    })),
+  ])
+}
 
   function removeEmployee(index: number) {
     setEmployees((prev) => prev.filter((row) => row.index !== index))
@@ -130,27 +148,69 @@ export function PayrollCreateWizard() {
       prev.map((row) => (row.index === index ? { ...row, [field]: value } : row))
     )
   }
-
+  
+  const executionFee = 0.01
   // Totals/requirements
   const recipientsCount = employees.filter((e) => e.employee_address.trim()).length
+ 
+
   const netTotal = employees.reduce((acc, e) => acc + toNum(e.net_human), 0)
   const taxTotal = employees.reduce((acc, e) => acc + toNum(e.tax_human), 0)
   const totalPayout = netTotal + taxTotal
 
-  const executionFee = 0.01
+  function computeOccurrences() {
+  if (scheduleMode !== 'recurring') return 1
+  if (!startAt || !endAt) return 0
+
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+
+  if (scheduleType === 'daily') {
+    const diff = Math.ceil(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    return Math.max(diff, 1)
+  }
+
+  if (scheduleType === 'monthly') {
+    return (
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth()) +
+      1
+    )
+  }
+
+  if (scheduleType === 'yearly') {
+    return end.getFullYear() - start.getFullYear() + 1
+  }
+
+  return 1
+}
+
+const occurrences = computeOccurrences()
+
+const requiredFunding =
+  occurrences * totalPayout + executionFee
+
+
+const walletHasFunds =
+  walletTokenBalance !== null &&
+  walletTokenBalance >= requiredFunding
+
 
   const hasBasics = !!sourceChainId && !!defaultTokenAddress && !!title.trim()
   const hasRecipients = recipientsCount > 0
   const payoutPositive = totalPayout > 0
 
-  const scheduleSelected =
-    scheduleMode === 'immediate'
-      ? true
-      : scheduleMode === 'scheduled'
-        ? !!startAt
-        : scheduleMode === 'recurring'
-          ? true
-          : false
+ const scheduleSelected =
+  scheduleMode === 'immediate'
+    ? true
+    : scheduleMode === 'scheduled'
+      ? !!startAt
+      : scheduleMode === 'recurring'
+        ? !!startAt && !!endAt
+        : false
+
 
   const scheduleLabel =
     scheduleMode === 'immediate' ? 'Immediate dispatch' : scheduleMode === 'scheduled' ? 'Scheduled' : 'Recurring'
@@ -165,21 +225,26 @@ export function PayrollCreateWizard() {
     []
   )
 
-  function setMode(next: ScheduleMode) {
-    setScheduleMode(next)
+ function setMode(next: ScheduleMode) {
+  setScheduleMode(next)
 
-    if (next === 'immediate') {
-      setScheduleType('instant')
-      setStartAt('')
-      setEndAt('')
-      return
-    }
-    if (next === 'scheduled') {
-      setScheduleType('instant')
-      return
-    }
+  if (next === 'immediate') {
+    setScheduleType('instant')
+    setStartAt('')
+    setEndAt('')
+    return
+  }
+
+  if (next === 'scheduled') {
+    setScheduleType('instant')
+    return
+  }
+
+  // ✅ only set default ON FIRST ENTRY to recurring
+  if (scheduleMode !== 'recurring') {
     setScheduleType('monthly')
   }
+}
 
   function subtitleForStep(s: Step) {
     if (s === 1) return 'Define the payroll identity and settlement parameters'
@@ -187,6 +252,27 @@ export function PayrollCreateWizard() {
     if (s === 3) return 'Define when this payroll will run, and review funding requirements.'
     return 'Review and confirm your payroll details before dispatch.'
   }
+  const addressCounts = useMemo(() => {
+  const map: Record<string, number> = {}
+
+  employees.forEach((e) => {
+    if (!e.employee_address) return
+    const key = normalizeAddr(e.employee_address)
+    map[key] = (map[key] || 0) + 1
+  })
+
+  return map
+}, [employees])
+
+const hasDuplicateWallets = Object.values(addressCounts).some(
+  (count) => count > 1
+)
+
+const hasInvalidWallets = employees.some(
+  (e) =>
+    e.employee_address &&
+    !isAddress(e.employee_address)
+)
 
   function handleNext() {
     if (step === 1) {
@@ -196,13 +282,38 @@ export function PayrollCreateWizard() {
     }
 
     if (step === 2) {
-      if (!hasRecipients) return toast.error('Add at least one recipient')
-      if (!payoutPositive) return toast.error('Total payout must be greater than 0')
-    }
+  if (!hasRecipients) {
+    return toast.error('Add at least one recipient')
+  }
+
+  if (hasInvalidWallets) {
+    return toast.error('One or more wallet addresses are invalid')
+  }
+
+  if (hasDuplicateWallets) {
+    return toast.error('Duplicate wallet addresses detected')
+  }
+
+  if (!payoutPositive) {
+    return toast.error('Total payout must be greater than 0')
+  }
+}
 
     if (step === 3) {
-      if (scheduleMode === 'scheduled' && !startAt) return toast.error('Select a start date')
+  if (scheduleMode === 'scheduled' && !startAt) {
+    return toast.error('Select a start date')
+  }
+
+  if (scheduleMode === 'recurring') {
+    if (!startAt || !endAt) {
+      return toast.error('Recurring payroll requires start and end dates')
     }
+
+    if (new Date(endAt) < new Date(startAt)) {
+      return toast.error('End date cannot be earlier than start date')
+    }
+  }
+}
 
     setStep((p) => Math.min(4, (p + 1) as Step))
   }
@@ -213,6 +324,9 @@ export function PayrollCreateWizard() {
 
   async function handleSubmit() {
     if (!isWalletConnected || !activeEmployerId) return toast.error('Connect wallet & employer first')
+    if (!walletHasFunds) {
+  return toast.error('Insufficient wallet balance to fund this payroll')
+}
 
     const startIso =
       scheduleMode === 'immediate'
@@ -230,40 +344,65 @@ export function PayrollCreateWizard() {
             const [h, m] = timeOfDay.split(':').map(Number)
             return h * 3600 + m * 60
           })()
+const day =
+  scheduleMode === 'recurring' && scheduleType === 'monthly'
+    ? Number(dayOfMonth || 1)
+    : null
 
-    const day =
-      scheduleMode === 'recurring' && (scheduleType === 'monthly' || scheduleType === 'yearly')
-        ? Number(dayOfMonth || 1)
-        : null
 
-    const payments = employees
-      .filter((e) => e.employee_address && (toNum(e.net_human) > 0 || toNum(e.tax_human) > 0))
-      .map((e) => ({
-        employee_address: e.employee_address,
-        token_address: defaultTokenAddress,
-        net_human: String(toNum(e.net_human)),
-        tax_human: String(toNum(e.tax_human || '0')),
-        encrypted_ref: e.encrypted_ref || '0x',
-      }))
+    const schedule =
+    scheduleMode === 'immediate' || scheduleMode === 'scheduled'
+      ? {
+          type: 'instant',
+          start_at: startIso,
+        }
+      : {
+          type: scheduleType,
+          start_at: startIso,
+          end_at: endIso,
+          time_of_day_seconds: timeSeconds,
+          day_of_month: scheduleType === 'monthly' ? day : null,
+        }
+
+
+    const merged: Record<string, PaymentPayload> = {}
+
+employees.forEach((e) => {
+  if (!e.employee_address) return
+  const key = normalizeAddr(e.employee_address)
+
+  if (!merged[key]) {
+    merged[key] = {
+      employee_address: e.employee_address,
+      token_address: defaultTokenAddress,
+      net_human: '0',
+      tax_human: '0',
+      encrypted_ref: e.encrypted_ref || '0x',
+    }
+  }
+
+  merged[key].net_human = String(
+    toNum(merged[key].net_human) + toNum(e.net_human)
+  )
+  merged[key].tax_human = String(
+    toNum(merged[key].tax_human) + toNum(e.tax_human)
+  )
+})
+
+const payments = Object.values(merged)
 
     if (!payments.length) return toast.error('No valid recipient rows')
 
     try {
       const payload = {
-        employer: activeEmployerId,
-        source_chain: sourceChainId as number,
-        title: title.trim(),
-        description: description.trim(),
-        default_token_address: defaultTokenAddress,
-        schedule: {
-          type: scheduleType,
-          start_at: startIso,
-          end_at: endIso,
-          time_of_day_seconds: timeSeconds,
-          day_of_month: day,
-        },
-        payments,
-      }
+          employer: activeEmployerId,
+          source_chain: sourceChainId as number,
+          title: title.trim(),
+          description: description.trim(),
+          default_token_address: defaultTokenAddress,
+          schedule, // ← USE IT HERE
+          payments,
+  }
 
       const created = await createPayroll.mutateAsync(payload)
       toast.success('Payroll created')
@@ -307,12 +446,24 @@ export function PayrollCreateWizard() {
 
   const employerName = boundEmployer?.name || 'Employer'
 
-  const nextDisabled =
-    (step === 1 && !hasBasics) ||
-    (step === 2 && (!hasRecipients || !payoutPositive)) ||
-    (step === 3 && scheduleMode === 'scheduled' && !startAt)
+ const nextDisabled =
+  (step === 1 && !hasBasics) ||
+  (step === 2 &&
+    (!hasRecipients ||
+      !payoutPositive ||
+      hasDuplicateWallets ||
+      hasInvalidWallets)) ||
+  (step === 3 && scheduleMode === 'scheduled' && !startAt)
+  
 
-  const submitDisabled = !hasBasics || !hasRecipients || !payoutPositive || !scheduleSelected
+
+
+  const submitDisabled =
+  !hasBasics ||
+  !hasRecipients ||
+  !payoutPositive ||
+  !scheduleSelected ||
+  !walletHasFunds
 
   return (
     // ✅ FIX: add bottom padding so content never kisses the global footer
@@ -356,6 +507,8 @@ export function PayrollCreateWizard() {
                   symbol={symbol}
                   onRemove={removeEmployee}
                   onUpdate={updateEmployee}
+                  onAdd={addEmployee}
+                  onCsvImport={handleCsvImport}
                   recipientsCount={recipientsCount}
                   netTotal={netTotal}
                   taxTotal={taxTotal}
@@ -382,6 +535,7 @@ export function PayrollCreateWizard() {
                   symbol={symbol}
                   totalPayout={totalPayout}
                   executionFee={executionFee}
+                  requiredFunding={requiredFunding}  
                   walletTokenBalance={walletTokenBalance}
                   walletLoading={tokenBalance.isLoading}
                   walletCanQuery={walletCanQuery}

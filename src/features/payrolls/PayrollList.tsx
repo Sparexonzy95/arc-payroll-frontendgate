@@ -42,9 +42,38 @@ const TOKENS = {
   border: 'rgba(15,23,42,0.08)',
   borderSoft: 'rgba(15,23,42,0.06)',
   hoverRow: 'rgba(15,23,42,0.03)',
-  primary: '#0B3A8A',
-  primarySoft: 'rgba(11,58,138,0.10)',
+
+  /* 🔵 ACTION COLOR (BASE) */
+  primary: '#0c2b51',
+
+  /* 🔵 SOFT HIGHLIGHT (NOT ACTION) */
+  primarySoft: 'rgba(12,43,81,0.10)',
 }
+const PRIMARY_BTN = {
+  background: '#0c2b51',
+  border: '1px solid #0c2b51',
+  color: '#ffffff',
+}
+
+const SECONDARY_BTN = {
+  background: 'transparent',
+  border: '1px solid rgba(12,43,81,0.35)',
+  color: '#0c2b51',
+}
+
+const GHOST_BTN = {
+  background: 'transparent',
+  border: 'none',
+  color: '#475569',
+}
+
+const GHOST_BTN_DISABLED = {
+  background: 'transparent',
+  border: 'none',
+  color: '#94A3B8',
+  cursor: 'not-allowed',
+}
+
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
@@ -153,7 +182,13 @@ export function PayrollList() {
           </div>
 
           <Link to="/payrolls/new" className="w-full sm:w-auto">
-            <Button size="sm" variant="primary" className="w-full sm:w-auto gap-2">
+            <Button
+  size="sm"
+  variant="primary"
+  className="w-full sm:w-auto gap-2"
+  
+>
+
               <IconPlus size={16} />
               New Payroll
             </Button>
@@ -185,8 +220,12 @@ export function PayrollList() {
 
             <div className="mt-5 flex justify-center">
               <Link to="/payrolls/new" className="w-full sm:w-auto">
-                <Button size="sm" variant="primary" className="w-full sm:w-auto gap-2">
-                  <IconPlus size={16} />
+                <Button
+  size="sm"
+  variant="primary"
+  className="gap-2"
+  
+>  <IconPlus size={16} />
                   New Payroll
                 </Button>
               </Link>
@@ -219,8 +258,13 @@ export function PayrollList() {
         {/* Responsive actions (polished spacing) */}
         <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center">
           <Link to="/payrolls/new" className="w-full sm:w-auto">
-            <Button size="sm" variant="primary" className="w-full sm:w-auto gap-2">
-              <IconPlus size={16} />
+            <Button
+  size="sm"
+  variant="primary"
+  className="w-full sm:w-auto gap-2"
+  
+>
+   <IconPlus size={16} />
               New Payroll
             </Button>
           </Link>
@@ -230,6 +274,8 @@ export function PayrollList() {
     size="sm"
     variant="secondary"
     className="w-full sm:w-auto gap-2"
+      
+
   >
     <IconWallet size={16} />
     Fund Wallet
@@ -393,7 +439,8 @@ export function PayrollList() {
 
                   <div className="mt-4">
                     <Link to={`/payrolls/${p.id}`} className="block">
-                      <Button size="sm" variant="secondary" className="w-full justify-center h-9 px-4 rounded-full gap-2">
+                      <Button size="sm" variant="secondary" className="w-full justify-center h-9 px-4 rounded-full gap-2
+">
                         <IconEye size={16} />
                         View
                       </Button>
@@ -409,15 +456,16 @@ export function PayrollList() {
             <div className="flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${TOKENS.borderSoft}` }}>
               <div className="pt-3">
                 <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-9 px-3 rounded-[12px] gap-2"
-                >
-                  <IconChevronLeft size={16} />
-                  Prev
-                </Button>
+  size="sm"
+  variant="ghost"
+  disabled={currentPage === 1}
+  onClick={() => setPage((p) => Math.max(1, p - 1))}
+  className="h-9 px-3 rounded-[12px] gap-2"
+  style={currentPage === 1 ? GHOST_BTN_DISABLED : GHOST_BTN}
+>
+  <IconChevronLeft size={16} />
+  Prev
+</Button>
               </div>
 
               <div className="pt-3 text-[12px]" style={{ color: TOKENS.text.secondary }}>
@@ -426,15 +474,17 @@ export function PayrollList() {
 
               <div className="pt-3">
                 <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={currentPage === pageCount}
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  className="h-9 px-3 rounded-[12px] gap-2"
-                >
-                  Next
-                  <IconChevronRight size={16} />
-                </Button>
+  size="sm"
+  variant="ghost"
+  disabled={currentPage === pageCount}
+  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+  className="h-9 px-3 rounded-[12px] gap-2"
+  style={currentPage === pageCount ? GHOST_BTN_DISABLED : GHOST_BTN}
+>
+  Next
+  <IconChevronRight size={16} />
+</Button>
+
               </div>
             </div>
           </div>
@@ -556,7 +606,7 @@ export function PayrollList() {
 
                           <div className="py-3 text-right" style={{ paddingLeft: 16, paddingRight: 20 }}>
                             <Link to={`/payrolls/${p.id}`}>
-                              <Button size="sm" variant="secondary" className="h-9 px-4 rounded-full gap-2">
+                              <Button size="sm" variant="secondary" className="h-9 px-4 rounded-full gap-2 ">
                                 <IconEye size={16} />
                                 View
                               </Button>
@@ -586,15 +636,17 @@ export function PayrollList() {
 
             <div className="flex items-center justify-between sm:justify-end gap-2">
               <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-9 px-3 rounded-[12px] gap-2"
-              >
-                <IconChevronLeft size={16} />
-                Previous
-              </Button>
+  size="sm"
+  variant="ghost"
+  disabled={currentPage === 1}
+  onClick={() => setPage((p) => Math.max(1, p - 1))}
+  className="h-9 px-3 rounded-[12px] gap-2"
+  style={currentPage === 1 ? GHOST_BTN_DISABLED : GHOST_BTN}
+>
+  <IconChevronLeft size={16} />
+  Previous
+</Button>
+
 
               <span
                 className="hidden sm:inline-flex items-center gap-2 px-3 h-9 rounded-full text-[12px]"
@@ -609,15 +661,17 @@ export function PayrollList() {
               </span>
 
               <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage === pageCount}
-                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                className="h-9 px-3 rounded-[12px] gap-2"
-              >
-                Next
-                <IconChevronRight size={16} />
-              </Button>
+  size="sm"
+  variant="ghost"
+  disabled={currentPage === pageCount}
+  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+  className="h-9 px-3 rounded-[12px] gap-2"
+  style={currentPage === pageCount ? GHOST_BTN_DISABLED : GHOST_BTN}
+>
+  Next
+  <IconChevronRight size={16} />
+</Button>
+
             </div>
           </div>
         </div>

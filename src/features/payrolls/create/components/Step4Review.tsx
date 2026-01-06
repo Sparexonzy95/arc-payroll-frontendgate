@@ -71,7 +71,7 @@ export function Step4Review({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* LEFT */}
       <div className="space-y-5">
-        <div className="flex items-center gap-2 text-[18px] font-semibold" style={{ color: UI.text }}>
+        <div className="flex items-center gap-2 text-[18px] font-semibold" style={{ color: UI.navy }}>
           <IconClipboardCheck size={20} style={{ color: UI.navy }} />
           Overview
         </div>
@@ -90,7 +90,7 @@ export function Step4Review({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[18px] font-semibold" style={{ color: UI.text }}>
+        <div className="flex items-center gap-2 text-[18px] font-semibold" style={{ color: UI.navy }}>
           <IconUsers size={20} style={{ color: UI.navy }} />
           Recipients
         </div>
@@ -138,7 +138,10 @@ export function Step4Review({
             })}
         </div>
 
-        <p className="text-[13px] leading-relaxed" style={{ color: UI.subtext }}>
+        <p
+  className="text-[12.5px] leading-relaxed"
+  style={{ color: UI.muted }}
+>
           You are creating a payroll for {recipientsCount} recipient{recipientsCount === 1 ? '' : 's'} with funds dispatched{' '}
           {scheduleMode === 'immediate'
             ? 'immediately'
@@ -167,7 +170,7 @@ export function Step4Review({
             boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)',
           }}
         >
-          <div className="flex items-center gap-2 text-[16px] font-semibold" style={{ color: UI.text }}>
+          <div className="flex items-center gap-2 text-[16px] font-semibold" style={{ color: UI.navy }}>
             <IconWallet size={18} style={{ color: UI.navy }} />
             Funding & Schedule
           </div>
@@ -200,17 +203,27 @@ export function Step4Review({
               </span>
             </div>
 
-            <div className="flex justify-between" style={{ borderBottom: `1px solid ${UI.borderSoft}`, paddingBottom: 10 }}>
-              <span>Required:</span>
-              <span style={{ color: UI.text, fontWeight: 700 }}>
-                {fmt2(required)} {symbol}
-              </span>
-            </div>
+            <div
+  className="flex justify-between"
+  style={{ borderBottom: `1px solid ${UI.borderSoft}`, paddingBottom: 10 }}
+>
+  <span style={{ color: UI.text, fontWeight: 800 }}>Required:</span>
+  <span style={{ color: UI.text, fontWeight: 700 }}>
+    {fmt2(required)} {symbol}
+  </span>
+</div>
 
-            <div className="pt-2 flex items-center justify-center gap-2" style={{ color: statusColor, fontWeight: 700 }}>
-              <IconCheck size={18} />
-              {statusText}
-            </div>
+            <div
+  className="pt-2 flex items-center justify-center gap-2"
+  style={{ color: statusColor, fontWeight: 700 }}
+>
+  {fundsSufficient ? (
+    <IconCheck size={18} />
+  ) : (
+    <IconWallet size={18} />
+  )}
+  {statusText}
+</div>
 
             {walletError && walletCanQuery && !walletLoading && (
               <div className="pt-2 text-[12px]" style={{ color: '#DC2626' }}>

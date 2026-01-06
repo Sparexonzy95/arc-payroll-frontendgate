@@ -1,7 +1,7 @@
 // src/features/staking/components/StakingComingSoon.tsx
 import { Card } from '../../../components/ui/Card'
 
-const NAVY = '#071430ff'
+const NAVY = '#081c36'
 
 export function StakingComingSoon() {
   return (

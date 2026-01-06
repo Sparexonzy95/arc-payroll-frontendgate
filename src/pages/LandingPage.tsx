@@ -30,7 +30,8 @@ export function LandingPage() {
 
         {/* NAVBAR */}
         <header className="relative z-20 border-b border-subtle bg-[var(--nav-bg)]">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4 md:py-5 lg:px-0">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3 md:py-4 lg:px-0">
+
 
             {/* LOGO */}
             <div className="flex items-center gap-2">
@@ -50,7 +51,7 @@ export function LandingPage() {
   className="
     rounded-full
     bg-[color:var(--brand-action)]
-    px-4 py-2
+    px-6 py-3 sm:py-2.5
     text-[12px] font-medium
     text-white
     transition-colors
@@ -68,7 +69,8 @@ export function LandingPage() {
         <main className="relative z-10 flex-1">
           <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
             {/* HERO */}
-            <section className="flex flex-1 flex-col items-center justify-center text-center">
+            <section className="flex flex-col items-center justify-center text-center py-10 sm:py-14 md:py-16 lg:py-20">
+
               {/* POWERED BY ARC line */}
                 <div className="flex items-center justify-center gap-3 text-[10px] xs:text-[11px] tracking-[0.22em] uppercase text-ink-soft">
                   <span className="hidden h-px w-8 bg-[rgba(148,163,184,0.5)] sm:block" />
@@ -76,8 +78,8 @@ export function LandingPage() {
                   <span className="hidden h-px w-8 bg-[rgba(148,163,184,0.5)] sm:block" />
                 </div>
               <div className="max-w-3xl space-y-6 sm:space-y-7 md:space-y-8">
-                <h1 className="font-heading text-[1.9rem] font-semibold leading-tight tracking-tight text-ink-primary xs:text-[2.1rem] sm:text-[2.4rem] md:text-[2.9rem] lg:text-[3.2rem]">
-                  <span className="text-[color:var(--brand-highlight)]">
+                <h1 className="font-heading text-[1.75rem] font-semibold leading-tight tracking-tight text-ink-primary xs:text-[2.1rem] sm:text-[2.4rem] md:text-[2.9rem] lg:text-[3.2rem]">
+  <span className="text-[color:var(--brand-highlight)]">
                     Seamless
                   </span>{' '}
                   <span>On-Chain Finance</span>
@@ -110,7 +112,7 @@ export function LandingPage() {
     w-full
     rounded-full
     bg-[color:var(--brand-action)]
-    px-6 py-2.5
+    px-6 py-3 sm:py-2.5
     text-[13px] font-medium
     text-white
     transition-colors
@@ -135,7 +137,7 @@ export function LandingPage() {
     w-full
     rounded-full
     bg-transparent
-    px-6 py-2.5
+    px-6 py-3 sm:py-2.5
     text-[13px] font-medium
     text-[color:var(--brand-highlight)]
     ring-1 ring-[rgba(146,187,238,0.35)]
@@ -168,8 +170,8 @@ export function LandingPage() {
                   </p>
                 </div>
 
-                <div className="grid gap-6 text-[13px] sm:gap-7 sm:text-sm md:grid-cols-2 lg:grid-cols-3">
-                  {/* Payrolls */}
+<div className="grid gap-5 text-[13px] sm:gap-6 sm:text-sm lg:grid-cols-3 lg:gap-8">
+                {/* Payrolls */}
                  <div className="noise-surface card-payrolls rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)]">
                     <div className="mb-3 flex items-center gap-3 sm:mb-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[color:var(--brand-accent)]/12 ring-1 ring-[color:var(--brand-focus)] sm:h-11 sm:w-11">
@@ -179,7 +181,7 @@ export function LandingPage() {
                         Payrolls
                       </h3>
                     </div>
-                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
+                    <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] md:text-[14px]">
                       Draft once, fund in USDC or EURC, then dispatch across Arc
                       with instant or scheduled payout cycles.
                     </p>
@@ -195,7 +197,7 @@ export function LandingPage() {
       Gateway bridge
     </h3>
   </div>
-  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] md:text-[14px]">
     Bridge USDC between Arc and Base with Circle CCTP and keep
     your treasury view unified inside Arcflow.
   </p>
@@ -211,7 +213,7 @@ export function LandingPage() {
       Piggyvest savings
     </h3>
   </div>
-  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px]">
+  <p className="text-[12px] leading-relaxed text-ink-soft sm:text-[13px] md:text-[14px]">
     Flexible and fixed vaults for runway and buffers, still
     close enough to feed upcoming payrolls in a click.
   </p>
@@ -238,7 +240,8 @@ export function LandingPage() {
 <div className="relative noise-surface card-staking rounded-2xl border border-subtle p-5 sm:p-6 transition-colors hover:bg-[rgba(146,187,238,0.06)] md:col-span-2 lg:col-span-3">
 
   {/* Soon badge */}
-  <span className="absolute right-4 top-4 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase text-white backdrop-blur-sm">
+  <span className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase text-white backdrop-blur-sm">
+
     Soon
   </span>
 
@@ -329,7 +332,8 @@ export function LandingPage() {
                 © {year} Arcflow · Arc-native payroll and treasury
               </span>
 
-              <div className="flex items-center gap-4 sm:gap-5">
+             <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end sm:gap-5">
+
                {/* GitHub — Soon */}
 <button
   type="button"

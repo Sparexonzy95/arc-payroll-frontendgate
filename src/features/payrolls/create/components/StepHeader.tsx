@@ -20,7 +20,7 @@ export function StepHeader({
     <div className="px-5 sm:px-7 py-6 sm:py-7" style={{ borderBottom: `1px solid ${UI.borderSoft}` }}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[26px] sm:text-[30px] font-semibold" style={{ color: UI.text }}>
+          <h1 className="text-[26px] sm:text-[30px] font-semibold"  style={{ color: UI.navy }}>
             Create Payroll
           </h1>
           <p className="mt-1 text-[13px] sm:text-[14px]" style={{ color: UI.subtext }}>
@@ -44,7 +44,12 @@ export function StepHeader({
 
           {step === 2 && onAddRecipient && (
             <div className="mt-4">
-              <Button size="sm" className="gap-2 rounded-full h-9 px-5" onClick={onAddRecipient}>
+             <Button
+  size="sm"
+  variant="secondary"
+  className="gap-2 rounded-full h-9 px-5"
+  onClick={onAddRecipient}
+>
                 <IconPlus size={18} />
                 Add recipient
               </Button>
