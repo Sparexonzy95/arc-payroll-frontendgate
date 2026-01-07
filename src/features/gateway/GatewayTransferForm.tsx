@@ -226,7 +226,10 @@ export function GatewayTransferForm({ employer }: Props) {
   }
 
   return (
-    <Card className="relative rounded-2xl border border-subtle bg-surface-elevated p-0">
+    <Card
+  className="relative rounded-[18px] border border-subtle bg-surface-elevated"
+  style={{ boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)' }}
+>
       <div
         className="pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full blur-3xl"
         style={{ background: 'var(--arc-primary-muted)' }}
@@ -243,9 +246,9 @@ export function GatewayTransferForm({ employer }: Props) {
           </IconBadge>
 
           <div className="min-w-0">
-            <h2 className="text-sm font-heading font-semibold uppercase tracking-wide text-ink-primary">
+            <h3 className="text-[15px] font-semibold uppercase tracking-wide text-ink-primary">
               Bridge USDC between Arc &amp; Base
-            </h2>
+            </h3>
             <p className="mt-1 text-xs text-ink-soft">
               Signs a Circle Gateway burn intent and forwards it to your backend to request an attestation.
             </p>
@@ -258,7 +261,7 @@ export function GatewayTransferForm({ employer }: Props) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           disabled={!employer || !address}
-          helperText="Human readable amount, converted to 6-decimal atomic units inside the burn intent."
+          helperText="Amount of USDC to bridge. Uses standard 6-decimal USDC precision."
           className="text-sm"
         />
 

@@ -108,24 +108,30 @@ export function GatewayBalancesPanel({ employer }: Props) {
   const base = balances?.base_usdc ?? 0
 
   return (
-    <Card className="relative rounded-2xl border border-subtle bg-surface-elevated p-4 sm:p-6">
-      <div
-        className="pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full blur-3xl"
-        style={{ background: 'var(--arc-primary-muted)' }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-5 right-0 h-20 w-20 rounded-full blur-2xl"
-        style={{ background: 'rgba(37, 99, 235, 0.10)' }}
-      />
+    <Card
+  className="relative rounded-[18px] border border-subtle bg-surface-elevated p-5 sm:p-6"
+  style={{ boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)' }}
+>
+
+     <div
+  className="pointer-events-none absolute -top-8 -left-8 h-28 w-28 rounded-full blur-3xl"
+  style={{ background: 'rgba(12,43,81,0.08)' }}
+/>
+<div
+  className="pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full blur-3xl"
+  style={{ background: 'rgba(12,43,81,0.06)' }}
+/>
+
 
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-heading font-semibold uppercase tracking-wide text-ink-primary">
-            Employer Treasury
-          </h3>
-          <p className="mt-1 text-xs text-ink-soft">
-            Circle Gateway balances by domain{loading ? ' (refreshing...)' : ''}
-          </p>
+         <h3 className="text-[16px] font-semibold" style={{ color: '#0c2b51' }}>
+  Employer Treasury
+</h3>
+<p className="mt-1 text-[13px]" style={{ color: 'var(--arc-ink-soft)' }}>
+  Circle Gateway balances by network{loading ? ' · refreshing' : ''}
+</p>
+
         </div>
       </div>
 
@@ -136,40 +142,69 @@ export function GatewayBalancesPanel({ employer }: Props) {
       ) : null}
 
       <div className="space-y-3 sm:space-y-4">
-        <div className="rounded-xl border border-subtle bg-surface-sunken p-3 sm:px-4 sm:py-3">
+        <div
+  className="rounded-[14px] p-4"
+  style={{
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: 'rgba(15,23,42,0.02)',
+  }}
+>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <IconBadge>
-                <IconDatabase size={18} stroke={2} />
-              </IconBadge>
+              <div
+  className="flex h-10 w-10 items-center justify-center rounded-full"
+  style={{ background: 'rgba(12,43,81,0.10)' }}
+>
+  <IconDatabase size={18} style={{ color: '#0c2b51' }} />
+</div>
               <div className="min-w-0">
                 <div className="truncate font-medium text-ink-primary">Arc Testnet USDC</div>
-                <div className="text-[11px] text-ink-soft">Available liquidity</div>
+                <div className="text-[11px]" style={{ color: 'var(--arc-ink-muted)' }}>
+  Available USDC balance
+</div>
+
               </div>
             </div>
             <div className="text-left sm:text-right min-w-0">
-              <div className="font-mono text-[15px] sm:text-base text-ink-primary truncate">
-                {formatUSDC(arc, 6)}
-              </div>
+              <div
+  className="font-mono text-[18px] sm:text-[20px] font-semibold truncate"
+  style={{ color: '#0c2b51' }}
+>
+  {formatUSDC(arc, 6)}
+</div>
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-subtle bg-surface-sunken p-3 sm:px-4 sm:py-3">
+        <div
+  className="rounded-[14px] p-4"
+  style={{
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: 'rgba(15,23,42,0.02)',
+  }}
+>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <IconBadge>
-                <IconCoin size={18} stroke={2} />
-              </IconBadge>
+             <div
+  className="flex h-10 w-10 items-center justify-center rounded-full"
+  style={{ background: 'rgba(12,43,81,0.10)' }}
+>
+  <IconDatabase size={18} style={{ color: '#0c2b51' }} />
+</div>
               <div className="min-w-0">
                 <div className="truncate font-medium text-ink-primary">Base Sepolia USDC</div>
-                <div className="text-[11px] text-ink-soft">Available liquidity</div>
+                <div className="text-[11px]" style={{ color: 'var(--arc-ink-muted)' }}>
+  Available USDC balance
+</div>
               </div>
             </div>
             <div className="text-left sm:text-right min-w-0">
-              <div className="font-mono text-[15px] sm:text-base text-ink-primary truncate">
-                {formatUSDC(base, 6)}
-              </div>
+              <div
+  className="font-mono text-[18px] sm:text-[20px] font-semibold truncate"
+  style={{ color: '#0c2b51' }}
+>
+  {formatUSDC(base, 6)}
+</div>
             </div>
           </div>
         </div>

@@ -4,6 +4,8 @@ import { useAccount, usePublicClient, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import toast from 'react-hot-toast'
 import { useQueryClient } from '@tanstack/react-query'
+import UsdcIcon from '../../assets/tokens/usdc.svg'
+import EurcIcon from '../../assets/tokens/eurc.svg'
 
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -14,6 +16,12 @@ import { useUserSavings } from '../../hooks/hooks/useUserSavings'
 import { ARC_CHAIN_ID, ARC_SAVINGS_VAULT } from '../../lib/config'
 import { savingsVaultAbi } from '../../abi/savingsVault'
 import { api } from '../../api/client'
+// Arcflow theme
+const CARD =
+  'rounded-[18px] border border-subtle bg-surface-elevated'
+const CARD_INSET =
+  'rounded-[14px] border border-subtle bg-surface-sunken'
+const SOFT_SHADOW = { boxShadow: '0 10px 28px rgba(2,6,23,0.06)' }
 
 import {
   IconCoins,
@@ -108,7 +116,8 @@ function StatCard({
   subtitle: string
 }) {
   return (
-    <Card className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+   <Card className={`${CARD} p-5`} style={SOFT_SHADOW}>
+
       <div className="flex items-start gap-4">
         <div
           className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 ring-1 ring-slate-200"
@@ -242,18 +251,27 @@ export function SavingsPanel() {
 
   return (
     <div className="space-y-5 md:space-y-6">
-      {/* Overview */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900">Overview</h3>
-          {address ? (
-            <p className="text-xs text-slate-500">
-              Wallet: <span className="font-mono text-slate-700">{walletLabel}</span>
-            </p>
-          ) : (
-            <p className="text-xs text-slate-500">Connect wallet to manage vaults.</p>
-          )}
+  {/* Overview */}
+  <div>
+    <div className="mb-3 flex items-center justify-between">
+      <h3 className="text-sm font-semibold text-ink-primary">Overview</h3>
+
+      {address ? (
+        <div className="inline-flex items-center gap-2 rounded-full border border-subtle bg-surface-sunken px-3 py-1">
+          <span className="text-[11px] uppercase tracking-wide text-ink-muted">
+            Wallet
+          </span>
+          <span className="font-mono text-xs text-ink-primary">
+            {walletLabel}
+          </span>
         </div>
+      ) : (
+        <span className="text-[11px] text-ink-muted">
+          Connect wallet to manage vaults
+        </span>
+      )}
+    </div>
+
 
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard
@@ -278,125 +296,179 @@ export function SavingsPanel() {
       </div>
 
       {/* Savings vaults (allocate + create) */}
-      <Card className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+     <Card className={`${CARD} p-5`} style={SOFT_SHADOW}>
+
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Savings vaults</h3>
           <div className="text-xs text-slate-500">Create + fund a vault below</div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <h4 className="text-sm font-semibold text-slate-900">Allocate funds to a savings vault</h4>
+        {/* Allocation header (FULL WIDTH, CLEAN) */}
+<div className="mt-4 w-full rounded-2xl border border-subtle bg-surface-elevated px-5 py-4">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    {/* Title + description */}
+    <div className="min-w-0">
+      <h4 className="text-[15px] font-semibold text-ink-primary">
+        Allocate funds to a savings vault
+      </h4>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {/* Flex card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2" style={{ color: NAVY }}>
-                <IconArrowsExchange size={18} stroke={1.9} />
-                <span className="text-base font-semibold text-slate-900">Flex Vault</span>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">{tokenChoice} (Arc)</p>
+      <p className="mt-1 text-xs text-ink-soft">
+        {planType === 'flex'
+          ? 'Flex vaults allow withdrawals at any time.'
+          : 'Fixed vaults lock funds until maturity.'}
+      </p>
+    </div>
 
-              <div className="mt-4">
-                <Button
-                  size="sm"
-                  variant={planType === 'flex' ? 'primary' : 'secondary'}
-                  onClick={() => setPlanType('flex')}
-                >
-                  Use Flex
-                </Button>
-              </div>
-            </div>
+    {/* Plan selector tabs */}
+    <div
+      className="inline-flex w-full sm:w-auto rounded-full border border-subtle bg-surface-sunken p-1"
+      role="tablist"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={planType === 'flex'}
+        onClick={() => setPlanType('flex')}
+        className={[
+          'px-5 py-2 text-sm font-medium rounded-full transition-all',
+          planType === 'flex'
+            ? 'bg-surface-elevated text-ink-primary shadow-soft'
+            : 'text-ink-soft hover:text-ink-primary',
+        ].join(' ')}
+      >
+        Flex Vault
+      </button>
 
-            {/* Fixed card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2" style={{ color: NAVY }}>
-                <IconLockBolt size={18} stroke={1.9} />
-                <span className="text-base font-semibold text-slate-900">Fixed Vault</span>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">{tokenChoice} (Arc)</p>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={planType === 'fixed'}
+        onClick={() => setPlanType('fixed')}
+        className={[
+          'px-5 py-2 text-sm font-medium rounded-full transition-all',
+          planType === 'fixed'
+            ? 'bg-surface-elevated text-ink-primary shadow-soft'
+            : 'text-ink-soft hover:text-ink-primary',
+        ].join(' ')}
+      >
+        Fixed Vault
+      </button>
+    </div>
+  </div>
 
-              <div className="mt-4">
-                <Button
-                  size="sm"
-                  variant={planType === 'fixed' ? 'primary' : 'secondary'}
-                  onClick={() => setPlanType('fixed')}
-                >
-                  Use Fixed
-                </Button>
-              </div>
-            </div>
-          </div>
 
-          {/* Create + fund (real functionality) */}
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className={`grid gap-4 ${planType === 'fixed' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Token
-                </label>
-                <select
-                  value={tokenChoice}
-                  onChange={(e) => setTokenChoice(e.target.value as TokenChoice)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  <option value="USDC">USDC (Arc)</option>
-                  <option value="EURC">EURC (Arc)</option>
-                </select>
-              </div>
 
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Amount ({tokenChoice})
-                </label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={newAmount}
-                  onChange={(e) => setNewAmount(e.target.value)}
-                  className="mt-1 h-10"
-                />
-              </div>
+         {/* Create + fund (real functionality) */}
+<div className="mt-4 w-full rounded-2xl border border-subtle bg-surface-elevated p-5">
+  <div className="space-y-5">
+    {/* Token selector */}
+    <div className="space-y-2">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+        Token
+      </label>
 
-              {/* Lock period only for fixed */}
-              {planType === 'fixed' && (
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Lock period
-                  </label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={fixedDays}
-                      onChange={(e) => setFixedDays(e.target.value)}
-                      className="h-10 flex-1"
-                    />
-                    <span className="text-sm text-slate-500">days</span>
-                  </div>
-                </div>
-              )}
-            </div>
+      <div
+        className="flex w-full rounded-full border border-subtle bg-surface-sunken p-1"
+        role="tablist"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tokenChoice === 'USDC'}
+          onClick={() => setTokenChoice('USDC')}
+          className={[
+            'flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all',
+            tokenChoice === 'USDC'
+              ? 'bg-surface-elevated text-ink-primary shadow-soft'
+              : 'text-ink-soft hover:text-ink-primary',
+          ].join(' ')}
+        >
+          <img src={UsdcIcon} alt="USDC" className="h-4 w-4" />
+          USDC
+        </button>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-500">
-                {planType === 'fixed'
-                  ? 'Fixed vaults lock funds until maturity. Withdraw becomes available after release.'
-                  : 'Flex vaults can withdraw by amount anytime.'}
-              </p>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tokenChoice === 'EURC'}
+          onClick={() => setTokenChoice('EURC')}
+          className={[
+            'flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all',
+            tokenChoice === 'EURC'
+              ? 'bg-surface-elevated text-ink-primary shadow-soft'
+              : 'text-ink-soft hover:text-ink-primary',
+          ].join(' ')}
+        >
+          <img src={EurcIcon} alt="EURC" className="h-4 w-4" />
+          EURC
+        </button>
+      </div>
 
-              <Button disabled={disabled} onClick={handleCreate} className="sm:w-auto">
-                {loading ? 'Working…' : 'Create vault and allocate funds'}
-              </Button>
-            </div>
-          </div>
+      <p className="text-[11px] text-ink-soft">
+        {tokenChoice} on Arc network
+      </p>
+    </div>
+
+    {/* Amount */}
+    <div className="space-y-2">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+        Amount ({tokenChoice})
+      </label>
+
+      <Input
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="0.00"
+        value={newAmount}
+        onChange={(e) => setNewAmount(e.target.value)}
+        className="h-11 text-base"
+      />
+    </div>
+
+    {/* Fixed vault lock period */}
+    {planType === 'fixed' && (
+      <div className="space-y-2">
+        <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+          Lock period
+        </label>
+
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min="1"
+            step="1"
+            value={fixedDays}
+            onChange={(e) => setFixedDays(e.target.value)}
+            className="h-11 w-32 text-base"
+          />
+          <span className="text-sm text-ink-soft">days</span>
         </div>
+      </div>
+    )}
+
+    {/* Info + action */}
+    <div className="rounded-xl border border-subtle bg-surface-sunken px-4 py-3">
+      <p className="text-xs text-ink-soft">
+        {planType === 'fixed'
+          ? 'Fixed vaults lock funds until maturity. Withdraw becomes available after release.'
+          : 'Flex vaults allow withdrawals at any time.'}
+      </p>
+    </div>
+
+    <div className="flex justify-end">
+      <Button disabled={disabled} onClick={handleCreate}>
+        {loading ? 'Working…' : 'Create vault and allocate funds'}
+      </Button>
+    </div>
+  </div>
+</div>
+</div>
       </Card>
 
       {/* Your savings */}
-      <Card className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <Card className={`${CARD} p-5`} style={SOFT_SHADOW}>
+
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Your vault positions</h3>
           <Button
@@ -468,9 +540,10 @@ function SavingsTable({
   disabled: boolean
 }) {
   return (
-    <div className="overflow-auto rounded-2xl border border-slate-200 bg-white">
+    <div className={`${CARD_INSET} overflow-auto`}>
+
       <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600">
+        <thead className="bg-surface-sunken text-ink-muted">
           <tr>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">ID</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Token</th>
@@ -783,7 +856,7 @@ function SavingCard({
   const canShowActions = planTypeOnchain !== null
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className={`${CARD} p-4`} style={SOFT_SHADOW}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-mono text-slate-500">#{saving.id}</p>

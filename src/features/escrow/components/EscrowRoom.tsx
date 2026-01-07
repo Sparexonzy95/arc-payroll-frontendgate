@@ -136,7 +136,13 @@ const backTo = '/dashboard?tab=escrow'
 
   const canFund = !!onchain && onchain.status === 0 && isPayer
   const canApprove = !!onchain && onchain.status === 1 && !onchain.disputed && isParty
-  const canDispute = !!onchain && onchain.status === 1 && isParty && !onchain.disputed
+ const chainFunded = onchain?.status === 1
+const dbFunded = escrow?.status === 'FUNDED'
+
+const canDispute =
+  isParty &&
+  !onchain?.disputed &&
+  (chainFunded || dbFunded)
 
   const readyRelease =
     !!onchain &&
@@ -344,6 +350,11 @@ const backTo = '/dashboard?tab=escrow'
               <div className="lg:col-span-7 space-y-4">
                 <Card className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
+                                      {isParty && (
+                      <div className="mt-1 text-[11px] text-slate-600">
+                        You are a party to this escrow
+                      </div>
+                    )}   
                     <div className="flex items-center gap-2">
                       <IconBolt size={16} stroke={1.9} style={{ color: NAVY }} />
                       <div className="text-sm font-semibold text-slate-900">Execution</div>
@@ -358,79 +369,88 @@ const backTo = '/dashboard?tab=escrow'
                         : 'Next: approvals'}
                     </div>
                   </div>
+<div className="mt-3 space-y-3">
+  {/* Primary actions */}
+  <div className="flex flex-wrap gap-2">
+    <button
+      disabled={!canFund || busy}
+      onClick={() => runTx(fund, 'Depositing funds…')}
+      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+      style={{ backgroundColor: NAVY }}
+    >
+      Deposit (fund)
+    </button>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      disabled={!canFund || busy}
-                      onClick={() => runTx(fund, 'Depositing funds…')}
-                      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                      style={{ backgroundColor: NAVY }}
-                    >
-                      Deposit (fund)
-                    </button>
+    <button
+      disabled={!canApprove || busy}
+      onClick={() => runTx(approveRelease, 'Approving release…')}
+      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
+    >
+      Approve release
+    </button>
 
-                    <button
-                      disabled={!canApprove || busy}
-                      onClick={() => runTx(approveRelease, 'Approving release…')}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
-                    >
-                      Approve release
-                    </button>
+    <button
+      disabled={!canApprove || busy}
+      onClick={() => runTx(approveRefund, 'Approving refund…')}
+      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
+    >
+      Approve refund
+    </button>
 
-                    <button
-                      disabled={!canApprove || busy}
-                      onClick={() => runTx(approveRefund, 'Approving refund…')}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
-                    >
-                      Approve refund
-                    </button>
+    <button
+      disabled={!readyRelease || busy}
+      onClick={() => runTx(executeRelease, 'Executing release…')}
+      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+      style={{ backgroundColor: NAVY }}
+    >
+      Execute release
+    </button>
 
-                    <button
-                      disabled={!readyRelease || busy}
-                      onClick={() => runTx(executeRelease, 'Executing release…')}
-                      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                      style={{ backgroundColor: NAVY }}
-                    >
-                      Execute release
-                    </button>
+    <button
+      disabled={!readyRefund || busy}
+      onClick={() => runTx(executeRefund, 'Executing refund…')}
+      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+      style={{ backgroundColor: NAVY }}
+    >
+      Execute refund
+    </button>
+  </div>
 
-                    <button
-                      disabled={!readyRefund || busy}
-                      onClick={() => runTx(executeRefund, 'Executing refund…')}
-                      className="rounded-2xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                      style={{ backgroundColor: NAVY }}
-                    >
-                      Execute refund
-                    </button>
+  {/* Divider */}
+  <div className="border-t border-slate-200" />
 
-                    <button
-                      disabled={!canDispute || busy}
-                      onClick={() =>
-                        runTx(
-                          async () => {
-                            const fee = (await publicClient.readContract({
-                              address: ARCFLOW_ESCROW_ADDRESS,
-                              abi: arcflowEscrowAbi,
-                              functionName: 'disputeFee',
-                              args: [],
-                            })) as bigint
-                            await dispute(fee)
-                          },
-                          'Opening dispute…'
-                        )
-                      }
-                      className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 disabled:opacity-50"
-                    >
-                      Dispute
-                    </button>
+ {/* Escalation */}
+<div className="flex flex-wrap gap-2">
+  <button
+    disabled={!canDispute || busy}
+    onClick={() =>
+      runTx(
+        async () => {
+          // 🔐 HARD CHAIN GUARD (CRITICAL)
+          if (!onchain || onchain.status !== 1) {
+            toast.error('Escrow not yet funded on-chain')
+            return
+          }
 
-                    {isParty ? (
-                      <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-[#F6F8FC] px-3 py-2 text-xs font-semibold text-slate-700">
-                        <IconCheck size={16} stroke={1.9} style={{ color: NAVY }} />
-                        You are a party
-                      </span>
-                    ) : null}
-                  </div>
+          const fee = (await publicClient.readContract({
+            address: ARCFLOW_ESCROW_ADDRESS,
+            abi: arcflowEscrowAbi,
+            functionName: 'disputeFee',
+            args: [],
+          })) as bigint
+
+          await dispute(fee)
+        },
+        'Opening dispute…'
+      )
+    }
+    className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 disabled:opacity-50"
+  >
+    Dispute
+  </button>
+</div>
+
+</div>
 
                   {!address ? (
                     <div className="mt-2 text-[11px] text-slate-600">Connect wallet to interact.</div>

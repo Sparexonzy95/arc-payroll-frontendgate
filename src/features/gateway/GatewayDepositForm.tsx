@@ -73,20 +73,21 @@ export function GatewayDepositForm() {
       return
     }
 
-    const setLoading = targetChainId === BASE_CHAIN_ID ? setIsDepositingBase : setIsDepositingArc
+    const setLoading =
+      targetChainId === BASE_CHAIN_ID ? setIsDepositingBase : setIsDepositingArc
     const toastId = `gw-deposit-${targetChainId}`
 
     try {
       setLoading(true)
 
       if (walletClient.switchChain) {
-        // @ts-ignore wagmi types
+        // @ts-ignore wagmi typing gap
         await walletClient.switchChain({ id: targetChainId })
       }
 
       const value = parseUnits(amount.trim(), 6)
 
-      toast.loading('Approving USDC...', { id: toastId })
+      toast.loading('Approving USDC…', { id: toastId })
       const approveTx = await walletClient.writeContract({
         address: usdcAddress,
         abi: ERC20_ABI,
@@ -95,7 +96,7 @@ export function GatewayDepositForm() {
       })
       await publicClient.waitForTransactionReceipt({ hash: approveTx })
 
-      toast.loading('Depositing into Gateway...', { id: toastId })
+      toast.loading('Depositing into Gateway…', { id: toastId })
       const depositTx = await walletClient.writeContract({
         address: GATEWAY_WALLET_ADDRESS as `0x${string}`,
         abi: GATEWAY_WALLET_ABI,
@@ -108,14 +109,20 @@ export function GatewayDepositForm() {
       setAmount('')
     } catch (err: any) {
       console.error(err)
-      toast.error(err?.shortMessage || err?.message || 'Deposit failed.', { id: toastId })
+      toast.error(err?.shortMessage || err?.message || 'Deposit failed.', {
+        id: toastId,
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Card className="relative rounded-2xl border border-subtle bg-surface-elevated p-0">
+    <Card
+      className="relative rounded-[18px] border border-subtle bg-surface-elevated"
+      style={{ boxShadow: '0 10px 28px rgba(2, 6, 23, 0.06)' }}
+    >
+      {/* ambient glow */}
       <div
         className="pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full blur-3xl"
         style={{ background: 'var(--arc-primary-muted)' }}
@@ -126,29 +133,39 @@ export function GatewayDepositForm() {
       />
 
       <div className="flex w-full flex-col gap-5 p-4 sm:gap-6 sm:p-6">
+        {/* Header */}
         <div className="flex items-start gap-3">
           <IconBadge>
             <IconArrowDownToArc size={18} stroke={2} />
           </IconBadge>
 
           <div className="min-w-0">
-            <h3 className="text-sm font-heading font-semibold uppercase tracking-wide text-ink-primary">
-              Deposit from wallet → Gateway
+            <h3 className="text-[15px] font-semibold uppercase tracking-wide text-ink-primary">
+              Deposit from Wallet → Gateway
             </h3>
-            <p className="mt-1 text-xs text-ink-soft">Move USDC from your wallet to your Gateway balance.</p>
+            <p className="mt-1 text-xs text-ink-soft">
+              Move USDC from your wallet into your Gateway balance.
+            </p>
           </div>
         </div>
 
+        {/* Amount */}
         <Input
           label="Amount (USDC)"
           placeholder="10.00"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           disabled={!address}
-          className="text-sm"
-          helperText={!amount ? 'Enter an amount to deposit.' : !validAmount ? 'Amount must be a valid number > 0.' : undefined}
+          helperText={
+            !amount
+              ? 'Enter an amount to deposit.'
+              : !validAmount
+              ? 'Amount must be a valid number greater than zero.'
+              : undefined
+          }
         />
 
+        {/* Actions */}
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
           <Button
             type="button"
@@ -158,7 +175,7 @@ export function GatewayDepositForm() {
             onClick={() => handleDeposit(BASE_CHAIN_ID)}
             className="flex w-full items-center justify-center gap-2"
           >
-            <IconCoin size={18} stroke={2} />
+            <IconCoin size={18} />
             Deposit from Base
           </Button>
 
@@ -170,17 +187,23 @@ export function GatewayDepositForm() {
             onClick={() => handleDeposit(ARC_CHAIN_ID)}
             className="flex w-full items-center justify-center gap-2"
           >
-            <IconWallet size={18} stroke={2} />
+            <IconWallet size={18} />
             Deposit from Arc
           </Button>
         </div>
 
-        {!address && <p className="text-xs text-ink-soft">Connect your wallet to deposit USDC.</p>}
+        {!address && (
+          <p className="text-xs text-ink-soft">
+            Connect your wallet to deposit USDC.
+          </p>
+        )}
 
+        {/* Footer info */}
         <div className="rounded-xl border border-subtle bg-surface-sunken p-3">
-          <div className="text-[11px] text-ink-soft">
-            Deposits go to the Circle Gateway Wallet contract and become available to bridge.
-          </div>
+          <p className="text-[11px] text-ink-soft">
+            Deposits are sent to the Circle Gateway Wallet contract and become
+            available for bridging and payroll funding.
+          </p>
         </div>
       </div>
     </Card>

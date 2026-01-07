@@ -1,6 +1,8 @@
 // src/features/payrolls/PayrollList.tsx
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+
 import {
   IconPlus,
   IconChevronLeft,
@@ -92,10 +94,11 @@ function formatUsd(n: number) {
 }
 
 export function PayrollList() {
+   const navigate = useNavigate()
   const { data: payrolls, isLoading, error } = usePayrolls()
   const { data: chains } = useChains()
   const { activeEmployerId } = useWalletEmployerBinding()
-
+ 
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -241,7 +244,7 @@ export function PayrollList() {
   const startIndex = (currentPage - 1) * PAGE_SIZE
   const endIndex = Math.min(startIndex + PAGE_SIZE, total)
   const pageItems = sorted.slice(startIndex, endIndex)
-
+ 
   return (
     <div className="space-y-4">
       {/* Header row */}
@@ -553,10 +556,10 @@ export function PayrollList() {
                 {pageItems.map((p: any) => {
                   const chain = chainMap.get(p.source_chain)
                   return (
-                    <tr
+                   <tr
   key={p.id}
-  className="transition-colors hover:bg-[rgba(15,23,42,0.03)]"
-  style={{ height: 58, borderTop: `1px solid ${TOKENS.borderSoft}` }}
+  className="transition-colors cursor-pointer hover:bg-[rgba(15,23,42,0.03)]"
+  onClick={() => navigate(`/payrolls/${p.id}`)}
 >
   {/* Payroll Name */}
   <td className="py-3 align-middle" style={{ paddingLeft: 20, paddingRight: 16 }}>
@@ -607,10 +610,16 @@ export function PayrollList() {
   {/* Action */}
   <td className="py-3 align-middle text-right" style={{ paddingRight: 20 }}>
     <Link to={`/payrolls/${p.id}`}>
-      <Button size="sm" variant="secondary" className="h-9 px-4 rounded-full gap-2">
-        <IconEye size={16} />
-        View
-      </Button>
+     <Button
+  size="sm"
+  variant="secondary"
+  onClick={(e) => {
+    e.stopPropagation() // ⛔ stops row click
+    navigate(`/payrolls/${p.id}`)
+  }}
+>
+  View
+</Button>
     </Link>
   </td>
 </tr>

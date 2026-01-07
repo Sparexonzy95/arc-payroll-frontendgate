@@ -254,9 +254,10 @@ export function CreateEscrowCard(props: {
         <div className="rounded-2xl px-4 py-4 sm:px-5 sm:py-5" style={{ backgroundColor: NAVY }}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">Create escrow</div>
-
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+              <div className="text-lg font-semibold tracking-tight text-white">
+  Create Escrow
+</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
                   Fee: {prettyFee(creationFee)}
                 </div>
@@ -306,8 +307,10 @@ export function CreateEscrowCard(props: {
 
       {/* BODY */}
       <div className="px-4 pb-4 sm:px-5 sm:pb-5 flex-1 flex flex-col">
+
         {/* Minimal stepper */}
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-subtle bg-surface-sunken p-2">
+
           <StepPill title="Create" icon={IconPlus} active={activeStep === 'create'} />
           <div className="text-slate-300">→</div>
           <StepPill title="Fund" icon={IconCoin} active={false} />
@@ -317,8 +320,9 @@ export function CreateEscrowCard(props: {
           <StepPill title="Resolve" icon={IconLock} active={false} />
         </div>
 
-        {/* Form */}
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+       {/* Form */}
+<div className="mt-4 w-full rounded-2xl border border-subtle bg-surface-elevated p-4 sm:p-5 shadow-sm">
+<div className="grid gap-4 md:grid-cols-2">
           {/* Payee */}
           <label className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
@@ -327,7 +331,7 @@ export function CreateEscrowCard(props: {
             </div>
             <input
               className={cn(
-                'h-11 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
+                'h-12 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
                 tPayee && !payeeOk
                   ? 'border-rose-300 focus:ring-rose-200'
                   : 'border-slate-200 focus:ring-blue-200'
@@ -359,7 +363,7 @@ export function CreateEscrowCard(props: {
                 setTokenOpen((v) => !v)
               }}
               className={cn(
-                'h-11 w-full rounded-xl border bg-white px-3 text-left text-sm outline-none focus:ring-2',
+                'h-12 w-full rounded-xl border bg-white px-3 text-left text-sm outline-none focus:ring-2',
                 'flex items-center justify-between gap-3',
                 tToken && !tokenOk
                   ? 'border-rose-300 focus:ring-rose-200'
@@ -458,7 +462,7 @@ export function CreateEscrowCard(props: {
             </div>
             <input
               className={cn(
-                'h-11 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
+                'h-12 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
                 tAmount && !amountOk
                   ? 'border-rose-300 focus:ring-rose-200'
                   : 'border-slate-200 focus:ring-blue-200'
@@ -482,7 +486,7 @@ export function CreateEscrowCard(props: {
             </div>
             <input
               className={cn(
-                'h-11 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
+                'h-12 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2',
                 tTimeout && !timeoutOk
                   ? 'border-rose-300 focus:ring-rose-200'
                   : 'border-slate-200 focus:ring-blue-200'
@@ -508,7 +512,7 @@ export function CreateEscrowCard(props: {
                 <button
                   type="button"
                   onClick={() => setShowHash((v) => !v)}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-subtle bg-surface-elevated px-2 py-1 text-[11px] font-medium text-ink-soft hover:text-ink-primary"
                 >
                   {showHash ? 'Hide hash' : 'Show hash'}
                 </button>
@@ -542,7 +546,7 @@ export function CreateEscrowCard(props: {
             ) : null}
           </div>
         </div>
-
+        </div>
         {/* CTA pinned to bottom */}
         <div className="mt-auto pt-5">
           <button
@@ -554,11 +558,12 @@ export function CreateEscrowCard(props: {
             )}
             style={{ backgroundColor: NAVY }}
           >
-            {busy ? 'Creating…' : 'Create escrow'}
+            {busy ? 'Creating escrow…' : 'Create secure escrow'}
           </button>
 
-          <div className="mt-2 text-[11px] text-slate-500">Next: fund it from the list.</div>
-        </div>
+          <div className="mt-2 text-[11px] text-ink-muted">
+  You’ll fund this escrow after creation.
+</div>        </div>
       </div>
     </Card>
   )

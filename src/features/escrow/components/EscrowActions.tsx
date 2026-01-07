@@ -15,10 +15,18 @@ import type { OnchainEscrow } from '../utils/onchain'
 type Primary = { label: string; onClick: () => void; disabled?: boolean; tone?: 'primary' | 'danger' | 'ghost' }
 
 function btnClass(tone: Primary['tone']) {
-  if (tone === 'danger') return 'bg-rose-600 text-white'
-  if (tone === 'ghost') return 'border border-slate-700 bg-[#0b1336] text-slate-100'
-  return 'bg-[#4189e1] text-white'
+  if (tone === 'danger') {
+    return 'bg-rose-600 text-white hover:bg-rose-700'
+  }
+
+  if (tone === 'ghost') {
+    return 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+  }
+
+  // primary
+  return 'text-white'
 }
+
 
 export function EscrowActions(props: {
   e: any
@@ -449,11 +457,13 @@ export function EscrowActions(props: {
   return (
     <div className="flex flex-col items-end gap-2">
       {primary ? (
-        <button
-          onClick={primary.onClick}
-          disabled={primary.disabled}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${btnClass(primary.tone)}`}
-        >
+       <button
+  onClick={primary.onClick}
+  disabled={primary.disabled}
+  className={`rounded-xl px-4 py-2 text-xs font-semibold shadow-sm disabled:opacity-50 ${btnClass(primary.tone)}`}
+  style={primary.tone === 'primary' ? { backgroundColor: '#0E2A55' } : undefined}
+>
+
           {primary.label}
         </button>
       ) : (
@@ -463,9 +473,9 @@ export function EscrowActions(props: {
       )}
 
       <button
-        onClick={() => setShowMore((v) => !v)}
-        className="rounded-lg border border-slate-800 bg-[#02071c] px-3 py-1.5 text-[11px] font-semibold text-slate-200"
-      >
+  onClick={() => setShowMore((v) => !v)}
+  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+>
         {showMore ? 'Hide actions' : 'More actions'}
       </button>
 
@@ -476,14 +486,16 @@ export function EscrowActions(props: {
               <button
                 onClick={handleApproveRelease}
                 disabled={busy}
-                className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
               >
                 Approve Release
               </button>
               <button
                 onClick={handleApproveRefund}
                 disabled={busy}
-                className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
               >
                 Approve Refund
               </button>
@@ -495,14 +507,16 @@ export function EscrowActions(props: {
               <button
                 onClick={handleExecuteRelease}
                 disabled={busy || !canExecuteRelease}
-                className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
               >
                 Execute Release
               </button>
               <button
                 onClick={handleExecuteRefund}
                 disabled={busy || !canExecuteRefund}
-                className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
               >
                 Execute Refund
               </button>
@@ -513,7 +527,8 @@ export function EscrowActions(props: {
             <button
               onClick={handleTimeoutRefund}
               disabled={busy}
-              className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
             >
               Timeout Refund
             </button>
@@ -533,7 +548,8 @@ export function EscrowActions(props: {
             <button
               onClick={handleSubmitEvidence}
               disabled={busy}
-              className="rounded-lg border border-slate-700 bg-[#0b1336] px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+
             >
               Submit Evidence
             </button>
