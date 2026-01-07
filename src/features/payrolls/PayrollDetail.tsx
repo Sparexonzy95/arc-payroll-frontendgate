@@ -747,7 +747,7 @@ async function waitForWalletClient(
               </p>
             </div>
 
-            <div className="rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated p-4">
+            <div className="rounded-[var(--arc-radius-lg)] border border-subtle bg-surface-elevated p-4 shadow-soft">
               <p className="text-xs font-semibold text-ink-muted">Totals</p>
               <p className="mt-1 text-sm text-ink-primary">
                 Net: <span className="font-mono">{payroll.total_net_amount}</span> · Tax:{' '}
@@ -785,7 +785,7 @@ async function waitForWalletClient(
 
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               onClick={handleFinalizePayroll}
               disabled={finalizing || txLock}
               loading={finalizing || txLock}
@@ -796,7 +796,7 @@ async function waitForWalletClient(
 
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               onClick={handleWithdrawLeftovers}
               disabled={withdrawing || txLock}
               loading={withdrawing || txLock}
@@ -842,7 +842,7 @@ async function waitForWalletClient(
                     chipClass('warn'),
                   ].join(' ')}
                 >
-                  ⚠ Deficit: <span className="font-mono">{deficit}</span>
+                   Deficit: <span className="font-mono">{deficit}</span>
                 </span>
               ) : (
                 <span
@@ -851,7 +851,7 @@ async function waitForWalletClient(
                     chipClass('ok'),
                   ].join(' ')}
                 >
-                  ✓ Funded
+                  Funded
                 </span>
               )
             }
@@ -876,7 +876,7 @@ async function waitForWalletClient(
                       const t = findTokenByAddress(item.token_address)
                       const rowDeficit = Number(item.deficit ?? 0)
                       return (
-                        <tr key={item.token_address} className="hover:bg-surface-sunken/60">
+                        <tr key={item.token_address} className="hover:bg-surface-sunken/60 transition-colors">
                           <td className="px-4 py-3 font-medium text-ink-primary">
                             {t ? t.symbol : item.token_address}
                           </td>
@@ -942,7 +942,7 @@ async function waitForWalletClient(
                     const txLink = explorerBase && fullTx ? `${explorerBase}/tx/${fullTx}` : null
 
                     return (
-                      <tr key={p.id} className="hover:bg-surface-sunken/60">
+                      <tr key={p.id} className="hover:bg-surface-sunken/60 transition-colors">
                         <td className="px-4 py-3 font-mono text-ink-primary">{p.payroll_index}</td>
                         <td className="px-4 py-3 font-mono text-ink-primary">
                           {p.employee_address.slice(0, 6)}…{p.employee_address.slice(-4)}
@@ -977,7 +977,7 @@ async function waitForWalletClient(
                         <td className="px-4 py-3 text-right">
                           <Button
                             size="xs"
-                            variant="secondary"
+                            variant="ghost"
                             onClick={() => handleVerifyOnchain(p.id)}
                             disabled={verifyingId === p.id}
                           >

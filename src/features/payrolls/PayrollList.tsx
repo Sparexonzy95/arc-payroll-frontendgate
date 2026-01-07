@@ -554,67 +554,67 @@ export function PayrollList() {
                   const chain = chainMap.get(p.source_chain)
                   return (
                     <tr
-                      key={p.id}
-                      className="transition-colors"
-                      style={{ height: 58, borderTop: `1px solid ${TOKENS.borderSoft}` }}
-                    >
-                      <td className="align-middle hover:bg-[rgba(15,23,42,0.03)]" style={{ paddingLeft: 0, paddingRight: 0 }} colSpan={6}>
-                        {/* Keep table structure intact but apply hover to full row via wrapper */}
-                        <div className="grid grid-cols-[1fr_180px_160px_150px_160px_140px]">
-                          <div className="py-3" style={{ paddingLeft: 20, paddingRight: 16 }}>
-                            <div className="flex flex-col gap-1 min-w-0">
-                              <span className="text-[15px] font-semibold truncate" style={{ color: TOKENS.text.primary }}>
-                                {p.title || 'Untitled payroll'}
-                              </span>
+  key={p.id}
+  className="transition-colors hover:bg-[rgba(15,23,42,0.03)]"
+  style={{ height: 58, borderTop: `1px solid ${TOKENS.borderSoft}` }}
+>
+  {/* Payroll Name */}
+  <td className="py-3 align-middle" style={{ paddingLeft: 20, paddingRight: 16 }}>
+    <div className="flex flex-col gap-1 min-w-0">
+      <span className="text-[15px] font-semibold truncate">
+        {p.title || 'Untitled payroll'}
+      </span>
 
-                              <span className="flex items-center gap-2 text-[12px] font-mono" style={{ color: TOKENS.text.muted }}>
-                                <span className="inline-flex items-center gap-1">
-                                  <IconTag size={14} />#{p.payroll_id}
-                                </span>
-                                <span style={{ opacity: 0.6 }}>•</span>
-                                <span className="inline-flex items-center gap-1">
-                                  <IconUsers size={14} />
-                                  {p.total_payments} payments
-                                </span>
-                              </span>
-                            </div>
-                          </div>
+      <span className="flex items-center gap-2 text-[12px] font-mono" style={{ color: TOKENS.text.muted }}>
+        <span className="inline-flex items-center gap-1">
+          <IconTag size={14} />#{p.payroll_id}
+        </span>
+        <span style={{ opacity: 0.6 }}>•</span>
+        <span className="inline-flex items-center gap-1">
+          <IconUsers size={14} />
+          {p.total_payments} payments
+        </span>
+      </span>
+    </div>
+  </td>
 
-                          <div className="py-3" style={{ paddingLeft: 16, paddingRight: 16 }}>
-                            <StatusPill status={p.status} />
-                          </div>
+  {/* Status */}
+  <td className="py-3 align-middle px-4">
+    <StatusPill status={p.status} />
+  </td>
 
-                          <div className="py-3 text-right font-mono text-[14px]" style={{ paddingLeft: 16, paddingRight: 16 }}>
-                            {p.total_net_amount}
-                          </div>
+  {/* Total Net */}
+  <td className="py-3 align-middle px-4 text-right font-mono text-[14px]">
+    {p.total_net_amount}
+  </td>
 
-                          <div className="py-3" style={{ paddingLeft: 16, paddingRight: 16 }}>
-                            <span className="text-[13px]" style={{ color: TOKENS.text.secondary }}>
-                              {p.total_payments} payments
-                            </span>
-                          </div>
+  {/* Payments */}
+  <td className="py-3 align-middle px-4 text-[13px]" style={{ color: TOKENS.text.secondary }}>
+    {p.total_payments} payments
+  </td>
 
-                          <div className="py-3" style={{ paddingLeft: 16, paddingRight: 16 }}>
-                            {chain ? (
-                              <ChainBadge name={chain.name} chainId={chain.chain_id} />
-                            ) : (
-                              <span className="text-[13px]" style={{ color: TOKENS.text.secondary }}>
-                                Unknown
-                              </span>
-                            )}
-                          </div>
+  {/* Chain */}
+  <td className="py-3 align-middle px-4">
+    {chain ? (
+      <ChainBadge name={chain.name} chainId={chain.chain_id} />
+    ) : (
+      <span className="text-[13px]" style={{ color: TOKENS.text.secondary }}>
+        Unknown
+      </span>
+    )}
+  </td>
 
-                          <div className="py-3 text-right" style={{ paddingLeft: 16, paddingRight: 20 }}>
-                            <Link to={`/payrolls/${p.id}`}>
-                              <Button size="sm" variant="secondary" className="h-9 px-4 rounded-full gap-2 ">
-                                <IconEye size={16} />
-                                View
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
+  {/* Action */}
+  <td className="py-3 align-middle text-right" style={{ paddingRight: 20 }}>
+    <Link to={`/payrolls/${p.id}`}>
+      <Button size="sm" variant="secondary" className="h-9 px-4 rounded-full gap-2">
+        <IconEye size={16} />
+        View
+      </Button>
+    </Link>
+  </td>
+</tr>
+
                   )
                 })}
               </tbody>
